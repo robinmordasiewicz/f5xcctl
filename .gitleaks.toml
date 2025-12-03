@@ -1,0 +1,49 @@
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "f5xcctl Gitleaks Configuration"
+
+[extend]
+# Use the default gitleaks config as a base
+useDefault = true
+
+# Allow patterns - false positives or intentional test data
+[allowlist]
+description = "Allowlist for false positives"
+paths = [
+    '''docs/specifications/api/.*\.json''',
+    '''.*_test\.go''',
+    '''testdata/.*''',
+]
+regexes = [
+    '''example\.com''',
+    '''test@test\.com''',
+    '''localhost''',
+]
+commits = []
+
+# Custom rules for F5XC-specific patterns
+[[rules]]
+id = "f5xc-api-token"
+description = "F5 Distributed Cloud API Token"
+regex = '''(?i)f5xc[_-]?api[_-]?token['":\s]*[=:]\s*['"]?([a-zA-Z0-9_-]{32,})['"]?'''
+entropy = 3.5
+secretGroup = 1
+keywords = ["f5xc", "api", "token"]
+
+[[rules]]
+id = "f5xc-p12-password"
+description = "F5XC P12 Certificate Password"
+regex = '''(?i)(p12[_-]?password|P12_PASSWORD)['":\s]*[=:]\s*['"]?([^\s'"]{8,})['"]?'''
+entropy = 3.0
+secretGroup = 2
+keywords = ["p12", "password"]
+
+# Paths to ignore
+[rules.allowlist]
+paths = [
+    '''\.pre-commit-config\.yaml''',
+    '''\.github/workflows/.*\.ya?ml''',
+    '''docs/.*\.md''',
+    '''README\.md''',
+]
