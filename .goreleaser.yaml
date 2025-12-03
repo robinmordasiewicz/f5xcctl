@@ -1,0 +1,117 @@
+project_name: f5xcctl
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+    # Generate shell completions
+    - sh -c "mkdir -p completions && go build -o f5xcctl-tmp ./cmd/f5xcctl && ./f5xcctl-tmp completion bash > completions/f5xcctl.bash && ./f5xcctl-tmp completion zsh > completions/_f5xcctl && ./f5xcctl-tmp completion fish > completions/f5xcctl.fish && rm f5xcctl-tmp"
+
+builds:
+  - main: ./cmd/f5xcctl
+    binary: f5xcctl
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - format: tar.gz
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE*
+      - completions/*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  groups:
+    - title: '🚀 Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: '🐛 Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: '⚡ Performance'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: '📚 Documentation'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: '🔧 Maintenance'
+      regexp: '^.*?(chore|ci|build)(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: 'Other'
+      order: 999
+  filters:
+    exclude:
+      - '^Merge pull request'
+      - '^Merge branch'
+
+release:
+  github:
+    owner: robinmordasiewicz
+    name: f5xcctl
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} v{{.Version}}"
+  header: |
+    ## Installation
+
+    ### Homebrew (macOS/Linux)
+    ```bash
+    brew install robinmordasiewicz/tap/f5xcctl
+    ```
+
+    ### Binary Download
+    Download the appropriate binary for your platform from the assets below.
+
+    ### Verify Checksums
+    ```bash
+    sha256sum -c checksums.txt
+    ```
+  footer: |
+    **Full Changelog**: https://github.com/robinmordasiewicz/f5xcctl/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+# Homebrew tap
+brews:
+  - repository:
+      owner: robinmordasiewicz
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/robinmordasiewicz/f5xcctl"
+    description: "kubectl-style CLI for F5 Distributed Cloud"
+    license: "Apache-2.0"
+    install: |
+      bin.install "f5xcctl"
+      bash_completion.install "completions/f5xcctl.bash" => "f5xcctl"
+      zsh_completion.install "completions/_f5xcctl"
+      fish_completion.install "completions/f5xcctl.fish"
+    test: |
+      system "#{bin}/f5xcctl", "version"
