@@ -1,6 +1,6 @@
 module github.com/f5/f5xcctl
 
-go 1.25.3
+go 1.23.0
 
 require (
 	github.com/c-bata/go-prompt v0.2.6
