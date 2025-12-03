@@ -1,0 +1,144 @@
+# Pre-commit hooks for f5xcctl - Go CLI project
+# See https://pre-commit.com for more information
+# Run: pre-commit install
+# Update hooks: pre-commit autoupdate
+
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
+fail_fast: false
+
+repos:
+  # =============================================================================
+  # General File Hygiene and Formatting
+  # =============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # Whitespace and line ending fixes
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+      # File size and format checks
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+        exclude: ^docs/specifications/api/
+
+      # Syntax validation
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        exclude: ^\.github/workflows/  # Allow workflow-specific YAML features
+      - id: check-json
+      - id: check-toml
+
+      # Git and filesystem hygiene
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: destroyed-symlinks
+
+      # Security checks
+      - id: detect-private-key
+
+      # Script checks
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  # =============================================================================
+  # Go Linting and Formatting (Official golangci-lint)
+  # =============================================================================
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.7.0
+    hooks:
+      - id: golangci-lint
+        args: [--timeout=5m]
+
+  # =============================================================================
+  # Go Tools (TekWizely - comprehensive Go pre-commit hooks)
+  # =============================================================================
+  - repo: https://github.com/TekWizely/pre-commit-golang
+    rev: v1.0.0-rc.4
+    hooks:
+      # Formatting
+      - id: go-fmt
+        args: [-w]
+
+      # Import management
+      - id: go-imports
+        args: [-w, -local, github.com/robinmordasiewicz/f5xcctl]
+
+      # Static analysis
+      - id: go-vet-repo-mod
+
+      # Build verification
+      - id: go-build-repo-mod
+
+      # Module tidiness
+      - id: go-mod-tidy-repo
+
+  # =============================================================================
+  # Go Security Scanning
+  # =============================================================================
+  # Gosec - Go security checker + Govulncheck (via TekWizely)
+  - repo: https://github.com/TekWizely/pre-commit-golang
+    rev: v1.0.0-rc.4
+    hooks:
+      - id: go-sec-repo-mod
+        args: [-exclude-dir=docs]
+      - id: go-vulncheck-repo-mod
+
+  # =============================================================================
+  # Secret Detection
+  # =============================================================================
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+        stages: [pre-commit]
+
+  # =============================================================================
+  # YAML Linting
+  # =============================================================================
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: [-c, .yamllint.yaml]
+        exclude: ^docs/specifications/api/
+
+  # =============================================================================
+  # Markdown Linting
+  # =============================================================================
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.46.0
+    hooks:
+      - id: markdownlint
+        args: [--config, .markdownlint.yaml, --fix]
+
+  # =============================================================================
+  # Shell Script Linting
+  # =============================================================================
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        args: [--severity=warning]
+
+  # =============================================================================
+  # Makefile Linting
+  # =============================================================================
+  - repo: https://github.com/mrtazz/checkmake
+    rev: 0.2.2
+    hooks:
+      - id: checkmake
+
+  # =============================================================================
+  # Commit Message Linting
+  # =============================================================================
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.10.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]

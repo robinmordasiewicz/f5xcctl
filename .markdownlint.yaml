@@ -1,0 +1,107 @@
+# markdownlint configuration
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Default state for all rules
+default: true
+
+# MD003 - Heading style (use ATX style: # Heading)
+MD003:
+  style: atx
+
+# MD004 - Unordered list style (use dashes)
+MD004:
+  style: dash
+
+# MD007 - Unordered list indentation
+MD007:
+  indent: 2
+  start_indented: false
+
+# MD009 - Trailing spaces (allow 2 for line breaks)
+MD009:
+  br_spaces: 2
+  list_item_empty_lines: false
+
+# MD010 - Hard tabs (disallow)
+MD010:
+  code_blocks: true
+
+# MD012 - Multiple consecutive blank lines
+MD012:
+  maximum: 2
+
+# MD013 - Line length (disable for flexibility)
+MD013: false
+
+# MD024 - Multiple headings with the same content
+MD024:
+  siblings_only: true
+
+# MD025 - Multiple top-level headings
+MD025:
+  front_matter_title: ""
+
+# MD026 - Trailing punctuation in heading
+MD026:
+  punctuation: ".,;:!?"
+
+# MD029 - Ordered list item prefix
+MD029:
+  style: ordered
+
+# MD030 - Spaces after list markers
+MD030:
+  ul_single: 1
+  ol_single: 1
+  ul_multi: 1
+  ol_multi: 1
+
+# MD033 - Inline HTML (allow certain tags)
+MD033:
+  allowed_elements:
+    - br
+    - kbd
+    - sup
+    - sub
+    - details
+    - summary
+
+# MD035 - Horizontal rule style
+MD035:
+  style: "---"
+
+# MD036 - Emphasis used instead of a heading (disable)
+MD036: false
+
+# MD041 - First line in file should be a top-level heading
+MD041: true
+
+# MD044 - Proper names should have correct capitalization
+MD044:
+  names:
+    - F5XC
+    - F5
+    - Go
+    - Golang
+    - GitHub
+    - API
+    - CLI
+    - YAML
+    - JSON
+  code_blocks: false
+
+# MD046 - Code block style
+MD046:
+  style: fenced
+
+# MD048 - Code fence style
+MD048:
+  style: backtick
+
+# MD049 - Emphasis style (use asterisks)
+MD049:
+  style: asterisk
+
+# MD050 - Strong style (use asterisks)
+MD050:
+  style: asterisk
