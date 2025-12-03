@@ -22,10 +22,9 @@ linters:
     - unparam
     - prealloc
 
-    # Style and formatting
+    # Style
     - misspell
     - whitespace
-    - wsl
 
     # Security
     - gosec
@@ -45,119 +44,94 @@ linters:
     - tparallel
 
   disable:
-    # Disable errcheck - too many false positives for CLI patterns
-    # like defer Close(), fmt.Printf, etc.
     - errcheck
+
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - commentFormatting
+        - hugeParam
+        - rangeValCopy
+        - appendAssign
+        - unnamedResult
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: increment-decrement
+        - name: var-naming
+        - name: package-comments
+          disabled: true
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unreachable-code
+
+    gocyclo:
+      min-complexity: 20
+
+    dupl:
+      threshold: 150
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    misspell:
+      locale: US
+
+    gosec:
+      excludes:
+        - G401
+        - G501
+        - G304
+        - G204
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gocritic
+          - dupl
+          - gosec
+          - gocyclo
+
+      - path: ".*_generated\\.go"
+        linters:
+          - all
+
+      - path: _test\.go
+        text: "line is .* characters"
+
+      - path: main\.go
+        text: "cyclomatic complexity"
+
+    paths:
+      - vendor
+      - docs
 
 formatters:
   enable:
     - gofmt
     - goimports
-    - gci
 
-linters-settings:
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-      - style
-    disabled-checks:
-      - commentFormatting
-      - hugeParam
-      - rangeValCopy
-      - appendAssign
-      - unnamedResult
-
-  revive:
-    rules:
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-      - name: increment-decrement
-      - name: var-naming
-      - name: package-comments
-        disabled: true  # Disable for CLIs
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-      - name: empty-block
-      - name: superfluous-else
-      - name: unreachable-code
-
-  gocyclo:
-    min-complexity: 20
-
-  dupl:
-    threshold: 150
-
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-
-  misspell:
-    locale: US
-
-  gosec:
-    excludes:
-      # Exclude weak crypto check - not relevant for CLI tools
-      - G401
-      - G501
-      # Exclude file inclusion via variable - common CLI pattern
-      - G304
-      # Exclude subprocess launched with variable - common CLI pattern
-      - G204
-    config:
-      global:
-        audit: false
-
-  gci:
-    sections:
-      - standard
-      - default
-      - prefix(github.com/robinmordasiewicz/f5xcctl)
-    skip-generated: true
-
-  wsl:
-    allow-assign-and-call: true
-    allow-multiline-assign: true
-    allow-trailing-comment: true
-    force-case-trailing-whitespace: 0
-
-issues:
-  max-issues-per-linter: 50
-  max-same-issues: 5
-
-  exclude-rules:
-    # Exclude some linters from running on test files
-    - path: _test\.go
-      linters:
-        - gocritic
-        - dupl
-        - gosec
-        - gocyclo
-        - wsl
-
-    # Exclude generated files
-    - path: ".*_generated\\.go"
-      linters:
-        - all
-
-    # Allow long lines in test files
-    - path: _test\.go
-      text: "line is .* characters"
-
-    # Exclude main function from cyclomatic complexity
-    - path: main\.go
-      text: "cyclomatic complexity"
-
-  exclude-dirs:
-    - vendor
-    - docs
+output:
+  formats:
+    text:
+      print-linter-name: true
