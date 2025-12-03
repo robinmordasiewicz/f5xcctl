@@ -1,0 +1,50 @@
+# Binaries
+f5xcctl
+f5xcctl.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build directories
+/build/
+/dist/
+
+# Test coverage
+coverage.out
+coverage.html
+*.coverprofile
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# Debug files
+debug
+*.test
+*.out
+
+# Generated files
+/completions/
+
+# Local configuration (don't commit credentials)
+.f5xcctl/
+*.local.yaml
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
