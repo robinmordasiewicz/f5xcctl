@@ -1,6 +1,6 @@
-# Binaries
-f5xcctl
-f5xcctl.exe
+# Binaries (root directory only, not cmd/f5xcctl/)
+/f5xcctl
+/f5xcctl.exe
 *.exe
 *.exe~
 *.dll
