@@ -49,7 +49,7 @@ func init() {
 	diffCmd.Flags().StringVarP(&diffFilename, "filename", "f", "", "Filename, directory, or URL to files containing the configuration to diff")
 	diffCmd.Flags().BoolVar(&diffServerSide, "server-side", false, "Use server-side diff (if supported)")
 	diffCmd.Flags().BoolVar(&diffNoColor, "no-color", false, "Disable color output")
-	diffCmd.MarkFlagRequired("filename")
+	_ = diffCmd.MarkFlagRequired("filename")
 
 	rootCmd.AddCommand(diffCmd)
 }
@@ -81,13 +81,13 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	for _, localResource := range resources {
 		kind, ns, name, err := extractResourceInfo(localResource)
 		if err != nil {
-			output.Warning("Skipping invalid resource: %v", err)
+			output.Warningf("Skipping invalid resource: %v", err)
 			continue
 		}
 
 		rt := ResolveResourceType(kind)
 		if rt == nil {
-			output.Warning("Unknown resource type: %s", kind)
+			output.Warningf("Unknown resource type: %s", kind)
 			continue
 		}
 
@@ -115,7 +115,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		}
 
 		if err := resp.DecodeJSON(&remoteResource); err != nil {
-			output.Warning("Failed to decode remote resource: %v", err)
+			output.Warningf("Failed to decode remote resource: %v", err)
 			continue
 		}
 
@@ -129,7 +129,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 
 		// Compare
 		if bytes.Equal(localYAML, remoteYAML) {
-			output.Info("%s/%s is up to date", rt.Name, name)
+			output.Infof("%s/%s is up to date", rt.Name, name)
 			continue
 		}
 
@@ -147,7 +147,8 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	}
 
 	if hasDiff {
-		os.Exit(1)
+		cancel()   // Ensure context is canceled before exit
+		os.Exit(1) //nolint:gocritic // exitAfterDefer: cancel() is called explicitly above
 	}
 
 	return nil
@@ -281,55 +282,52 @@ type diffLine struct {
 }
 
 // simpleDiff performs a simple line-by-line diff.
-func simpleDiff(old, new []string) []diffLine {
+func simpleDiff(oldLines, newLines []string) []diffLine {
 	var result []diffLine
 
 	// Build a map of old lines for quick lookup
 	oldMap := make(map[string]bool)
-	for _, line := range old {
+	for _, line := range oldLines {
 		oldMap[line] = true
 	}
 
 	newMap := make(map[string]bool)
-	for _, line := range new {
+	for _, line := range newLines {
 		newMap[line] = true
-	}
-
-	// Track which lines from old are present
-	maxLen := len(old)
-	if len(new) > maxLen {
-		maxLen = len(new)
 	}
 
 	oldIdx := 0
 	newIdx := 0
 
-	for oldIdx < len(old) || newIdx < len(new) {
-		if oldIdx >= len(old) {
+	for oldIdx < len(oldLines) || newIdx < len(newLines) {
+		switch {
+		case oldIdx >= len(oldLines):
 			// Only new lines left
-			result = append(result, diffLine{Type: "+", Content: new[newIdx]})
+			result = append(result, diffLine{Type: "+", Content: newLines[newIdx]})
 			newIdx++
-		} else if newIdx >= len(new) {
+		case newIdx >= len(newLines):
 			// Only old lines left
-			result = append(result, diffLine{Type: "-", Content: old[oldIdx]})
+			result = append(result, diffLine{Type: "-", Content: oldLines[oldIdx]})
 			oldIdx++
-		} else if old[oldIdx] == new[newIdx] {
+		case oldLines[oldIdx] == newLines[newIdx]:
 			// Lines match
-			result = append(result, diffLine{Type: "=", Content: old[oldIdx]})
+			result = append(result, diffLine{Type: "=", Content: oldLines[oldIdx]})
 			oldIdx++
 			newIdx++
-		} else if !newMap[old[oldIdx]] {
+		case !newMap[oldLines[oldIdx]]:
 			// Old line was removed
-			result = append(result, diffLine{Type: "-", Content: old[oldIdx]})
+			result = append(result, diffLine{Type: "-", Content: oldLines[oldIdx]})
 			oldIdx++
-		} else if !oldMap[new[newIdx]] {
+		case !oldMap[newLines[newIdx]]:
 			// New line was added
-			result = append(result, diffLine{Type: "+", Content: new[newIdx]})
+			result = append(result, diffLine{Type: "+", Content: newLines[newIdx]})
 			newIdx++
-		} else {
+		default:
 			// Both exist but in different positions - treat as change
-			result = append(result, diffLine{Type: "-", Content: old[oldIdx]})
-			result = append(result, diffLine{Type: "+", Content: new[newIdx]})
+			result = append(result,
+				diffLine{Type: "-", Content: oldLines[oldIdx]},
+				diffLine{Type: "+", Content: newLines[newIdx]},
+			)
 			oldIdx++
 			newIdx++
 		}
@@ -372,11 +370,4 @@ func printDiffLine(prefix, content string) {
 	default:
 		fmt.Printf(" %s\n", content)
 	}
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

@@ -48,7 +48,7 @@ Examples:
 func init() {
 	waitCmd.Flags().StringVar(&waitFor, "for", "", "The condition to wait for (delete, condition=<name>, jsonpath=<expr>=<value>)")
 	waitCmd.Flags().DurationVar(&waitTimeout, "timeout", 30*time.Second, "The timeout for the wait operation")
-	waitCmd.MarkFlagRequired("for")
+	_ = waitCmd.MarkFlagRequired("for")
 
 	rootCmd.AddCommand(waitCmd)
 }
@@ -89,7 +89,7 @@ func runWait(cmd *cobra.Command, args []string) error {
 
 // waitForDeletion waits until the resource no longer exists.
 func waitForDeletion(client *runtime.Client, rt *ResourceType, ns, name string, timeout time.Duration) error {
-	output.Info("Waiting for %s/%s to be deleted...", rt.Name, name)
+	output.Infof("Waiting for %s/%s to be deleted...", rt.Name, name)
 
 	deadline := time.Now().Add(timeout)
 	ticker := time.NewTicker(1 * time.Second)
@@ -107,7 +107,7 @@ func waitForDeletion(client *runtime.Client, rt *ResourceType, ns, name string, 
 
 		// If we get an error or the resource doesn't exist, it's deleted
 		if err != nil || !resp.IsSuccess() {
-			output.Success("%s/%s deleted", rt.Name, name)
+			output.Successf("%s/%s deleted", rt.Name, name)
 			return nil
 		}
 
@@ -117,7 +117,7 @@ func waitForDeletion(client *runtime.Client, rt *ResourceType, ns, name string, 
 
 // waitForCondition waits for a specific condition to be True.
 func waitForCondition(client *runtime.Client, rt *ResourceType, ns, name, condition string, timeout time.Duration) error {
-	output.Info("Waiting for %s/%s condition %q...", rt.Name, name, condition)
+	output.Infof("Waiting for %s/%s condition %q...", rt.Name, name, condition)
 
 	deadline := time.Now().Add(timeout)
 	ticker := time.NewTicker(2 * time.Second)
@@ -155,7 +155,7 @@ func waitForCondition(client *runtime.Client, rt *ResourceType, ns, name, condit
 				for _, c := range conditions {
 					if cond, ok := c.(map[string]interface{}); ok {
 						if cond["type"] == condition && cond["status"] == "True" {
-							output.Success("%s/%s condition %q is True", rt.Name, name, condition)
+							output.Successf("%s/%s condition %q is True", rt.Name, name, condition)
 							return nil
 						}
 					}
@@ -164,7 +164,7 @@ func waitForCondition(client *runtime.Client, rt *ResourceType, ns, name, condit
 			// Also check direct status fields (F5XC specific)
 			if state, ok := status["state"].(string); ok {
 				if strings.EqualFold(state, condition) || strings.EqualFold(state, "active") && strings.EqualFold(condition, "ready") {
-					output.Success("%s/%s is %s", rt.Name, name, state)
+					output.Successf("%s/%s is %s", rt.Name, name, state)
 					return nil
 				}
 			}
@@ -174,7 +174,7 @@ func waitForCondition(client *runtime.Client, rt *ResourceType, ns, name, condit
 		if sysMeta, ok := result["system_metadata"].(map[string]interface{}); ok {
 			if state, ok := sysMeta["state"].(string); ok {
 				if strings.EqualFold(state, condition) || (strings.EqualFold(state, "active") && strings.EqualFold(condition, "ready")) {
-					output.Success("%s/%s is %s", rt.Name, name, state)
+					output.Successf("%s/%s is %s", rt.Name, name, state)
 					return nil
 				}
 			}
@@ -195,7 +195,7 @@ func waitForJSONPath(client *runtime.Client, rt *ResourceType, ns, name, expr st
 	jsonPath := strings.Trim(parts[0], "'{}")
 	expectedValue := parts[1]
 
-	output.Info("Waiting for %s/%s %s=%s...", rt.Name, name, jsonPath, expectedValue)
+	output.Infof("Waiting for %s/%s %s=%s...", rt.Name, name, jsonPath, expectedValue)
 
 	deadline := time.Now().Add(timeout)
 	ticker := time.NewTicker(2 * time.Second)
@@ -230,7 +230,7 @@ func waitForJSONPath(client *runtime.Client, rt *ResourceType, ns, name, expr st
 		// Simple JSONPath evaluation
 		value := evaluateSimpleJSONPath(result, jsonPath)
 		if fmt.Sprintf("%v", value) == expectedValue {
-			output.Success("%s/%s %s=%s", rt.Name, name, jsonPath, expectedValue)
+			output.Successf("%s/%s %s=%s", rt.Name, name, jsonPath, expectedValue)
 			return nil
 		}
 

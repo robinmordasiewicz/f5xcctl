@@ -141,7 +141,7 @@ func runAppFirewallList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(list.Items) == 0 {
-		output.Info("No app firewalls found in namespace %q", ns)
+		output.Infof("No app firewalls found in namespace %q", ns)
 		return nil
 	}
 
@@ -236,7 +236,7 @@ func newAppFirewallCreateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&afSpecFile, "spec-file", "f", "", "path to specification file (required)")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -284,7 +284,7 @@ func runAppFirewallCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("App firewall %q created in namespace %q", name, ns)
+	output.Successf("App firewall %q created in namespace %q", name, ns)
 	return nil
 }
 
@@ -297,7 +297,7 @@ func newAppFirewallUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&afSpecFile, "spec-file", "f", "", "path to specification file (required)")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -345,7 +345,7 @@ func runAppFirewallUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("App firewall %q updated in namespace %q", name, ns)
+	output.Successf("App firewall %q updated in namespace %q", name, ns)
 	return nil
 }
 
@@ -377,7 +377,7 @@ func runAppFirewallDelete(cmd *cobra.Command, args []string) error {
 	if !afForce {
 		fmt.Printf("Are you sure you want to delete app firewall %q? [y/N]: ", name)
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Canceled")
 			return nil
@@ -397,6 +397,6 @@ func runAppFirewallDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("App firewall %q deleted from namespace %q", name, ns)
+	output.Successf("App firewall %q deleted from namespace %q", name, ns)
 	return nil
 }

@@ -24,7 +24,6 @@ var (
 	allNamespaces bool
 	labelSelector string
 	fieldSelector string
-	outputFormat  string
 	filename      string
 	recursive     bool
 	dryRun        bool
@@ -276,12 +275,12 @@ func init() {
 	applyCmd.Flags().StringVarP(&filename, "filename", "f", "", "Filename, directory, or URL to files (required)")
 	applyCmd.Flags().BoolVarP(&recursive, "recursive", "R", false, "Process the directory recursively")
 	applyCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Only print what would be applied")
-	applyCmd.MarkFlagRequired("filename")
+	_ = applyCmd.MarkFlagRequired("filename")
 
 	// REPLACE flags
 	replaceCmd.Flags().StringVarP(&filename, "filename", "f", "", "Filename to replace resource from (required)")
 	replaceCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Only print what would be replaced")
-	replaceCmd.MarkFlagRequired("filename")
+	_ = replaceCmd.MarkFlagRequired("filename")
 
 	// LABEL flags
 	labelCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Only print what would be changed")
@@ -466,7 +465,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("%s/%s created", rt.Name, resourceName)
+	output.Successf("%s/%s created", rt.Name, resourceName)
 	return nil
 }
 
@@ -500,7 +499,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Print("\nAre you sure? [y/N]: ")
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Canceled")
 			return nil
@@ -517,14 +516,14 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 	// Handle grace period
 	if gracePeriod > 0 {
-		output.Info("Grace period: %d seconds before deletion", gracePeriod)
+		output.Infof("Grace period: %d seconds before deletion", gracePeriod)
 		for i := gracePeriod; i > 0; i-- {
 			fmt.Printf("\rDeleting in %d seconds (Ctrl+C to cancel)...", i)
 			time.Sleep(1 * time.Second)
 		}
 		fmt.Println()
 	} else if gracePeriod == 0 {
-		output.Info("Immediate deletion (grace-period=0)")
+		output.Infof("Immediate deletion (grace-period=0)")
 	}
 
 	var errors []string
@@ -554,7 +553,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 				continue
 			}
 		}
-		output.Success("%s/%s deleted", rt.Name, name)
+		output.Successf("%s/%s deleted", rt.Name, name)
 
 		// Wait for deletion if --wait flag is set
 		if wait {
@@ -572,7 +571,7 @@ func runDelete(cmd *cobra.Command, args []string) error {
 
 // waitForResourceDeletion waits until the resource no longer exists.
 func waitForResourceDeletion(client *runtime.Client, rt *ResourceType, ns, name string, timeout time.Duration) error {
-	output.Info("Waiting for %s/%s to be fully deleted...", rt.Name, name)
+	output.Infof("Waiting for %s/%s to be fully deleted...", rt.Name, name)
 
 	deadline := time.Now().Add(timeout)
 	ticker := time.NewTicker(1 * time.Second)
@@ -590,7 +589,7 @@ func waitForResourceDeletion(client *runtime.Client, rt *ResourceType, ns, name 
 
 		// If we get an error or the resource doesn't exist, it's deleted
 		if err != nil || !resp.IsSuccess() {
-			output.Success("%s/%s fully deleted", rt.Name, name)
+			output.Successf("%s/%s fully deleted", rt.Name, name)
 			return nil
 		}
 
@@ -695,7 +694,7 @@ func runLabel(cmd *cobra.Command, args []string) error {
 	}
 
 	// TODO: Implement label update via PATCH
-	output.Warning("Label command implementation pending - use 'apply' with updated YAML for now")
+	output.Warningf("Label command implementation pending - use 'apply' with updated YAML for now")
 	return nil
 }
 
@@ -869,7 +868,7 @@ func createResource(ctx context.Context, client *runtime.Client, resource map[st
 		return err
 	}
 
-	output.Success("%s/%s created", rt.Name, name)
+	output.Successf("%s/%s created", rt.Name, name)
 	return nil
 }
 
@@ -893,7 +892,7 @@ func deleteResource(ctx context.Context, client *runtime.Client, resource map[st
 		return err
 	}
 
-	output.Success("%s/%s deleted", rt.Name, name)
+	output.Successf("%s/%s deleted", rt.Name, name)
 	return nil
 }
 
@@ -932,7 +931,7 @@ func applyResource(ctx context.Context, client *runtime.Client, resource map[str
 		if err := resp.Error(); err != nil {
 			return err
 		}
-		output.Success("%s/%s configured", rt.Name, name)
+		output.Successf("%s/%s configured", rt.Name, name)
 	} else {
 		// Create
 		basePath := rt.GetAPIPath(ns)
@@ -943,7 +942,7 @@ func applyResource(ctx context.Context, client *runtime.Client, resource map[str
 		if err := resp.Error(); err != nil {
 			return err
 		}
-		output.Success("%s/%s created", rt.Name, name)
+		output.Successf("%s/%s created", rt.Name, name)
 	}
 
 	return nil
@@ -1022,6 +1021,7 @@ func listAllNamespaces(ctx context.Context, client *runtime.Client, rt *Resource
 	return nil
 }
 
+//nolint:unparam // rt kept for future resource-specific formatting
 func printResource(resource map[string]interface{}, rt *ResourceType) error {
 	if outputFmt == "json" {
 		data, _ := json.MarshalIndent(resource, "", "  ")
@@ -1040,6 +1040,7 @@ func printResource(resource map[string]interface{}, rt *ResourceType) error {
 	return nil
 }
 
+//nolint:unparam // error return kept for API consistency
 func printResourceList(result map[string]interface{}, rt *ResourceType, ns string) error {
 	items, ok := result["items"].([]interface{})
 	if !ok {
@@ -1058,7 +1059,7 @@ func printResourceList(result map[string]interface{}, rt *ResourceType, ns strin
 	}
 
 	if len(items) == 0 {
-		output.Info("No resources found in namespace %q", ns)
+		output.Infof("No resources found in namespace %q", ns)
 		return nil
 	}
 
@@ -1117,6 +1118,7 @@ func printResourceList(result map[string]interface{}, rt *ResourceType, ns strin
 	return nil
 }
 
+//nolint:unparam // error return kept for API consistency
 func printDescribe(resource map[string]interface{}, rt *ResourceType, name string) error {
 	fmt.Printf("Name:         %s\n", name)
 	fmt.Printf("Kind:         %s\n", rt.Kind)
@@ -1323,16 +1325,16 @@ func watchResources(client *runtime.Client, rt *ResourceType, ns, resourceName s
 		path := rt.GetItemPath(ns, resourceName)
 		resp, _ := client.Get(ctx, path, nil)
 		var result map[string]interface{}
-		resp.DecodeJSON(&result)
-		printResource(result, rt)
+		_ = resp.DecodeJSON(&result)
+		_ = printResource(result, rt)
 	} else {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		path := rt.GetAPIPath(ns)
 		resp, _ := client.Get(ctx, path, nil)
 		var result map[string]interface{}
-		resp.DecodeJSON(&result)
-		printResourceList(result, rt, ns)
+		_ = resp.DecodeJSON(&result)
+		_ = printResourceList(result, rt, ns)
 	}
 
 	fmt.Printf("\n--- Last updated: %s (Ctrl+C to exit) ---\n", time.Now().Format("15:04:05"))
@@ -1346,7 +1348,7 @@ func watchResources(client *runtime.Client, rt *ResourceType, ns, resourceName s
 		case <-ticker.C:
 			currentHash, err := fetchAndDisplay()
 			if err != nil {
-				output.Warning("Error fetching resources: %v", err)
+				output.Warningf("Error fetching resources: %v", err)
 				continue
 			}
 
@@ -1360,16 +1362,16 @@ func watchResources(client *runtime.Client, rt *ResourceType, ns, resourceName s
 					path := rt.GetItemPath(ns, resourceName)
 					resp, _ := client.Get(ctx, path, nil)
 					var result map[string]interface{}
-					resp.DecodeJSON(&result)
-					printResource(result, rt)
+					_ = resp.DecodeJSON(&result)
+					_ = printResource(result, rt)
 					cancel()
 				} else {
 					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 					path := rt.GetAPIPath(ns)
 					resp, _ := client.Get(ctx, path, nil)
 					var result map[string]interface{}
-					resp.DecodeJSON(&result)
-					printResourceList(result, rt, ns)
+					_ = resp.DecodeJSON(&result)
+					_ = printResourceList(result, rt, ns)
 					cancel()
 				}
 

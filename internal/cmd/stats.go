@@ -167,11 +167,13 @@ type SiteStatusResponse struct {
 	Metrics         *SiteMetrics     `json:"metrics,omitempty"`
 }
 
+// SiteCoordinates represents geographic coordinates of a site.
 type SiteCoordinates struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
 
+// SiteCondition represents a condition status of a site.
 type SiteCondition struct {
 	Type    string `json:"type"`
 	Status  string `json:"status"`
@@ -179,6 +181,7 @@ type SiteCondition struct {
 	Message string `json:"message,omitempty"`
 }
 
+// SiteMetrics represents resource usage metrics of a site.
 type SiteMetrics struct {
 	CPUUsagePercent    float64 `json:"cpu_usage_percent,omitempty"`
 	MemoryUsagePercent float64 `json:"memory_usage_percent,omitempty"`
@@ -198,11 +201,13 @@ type SecurityStatsResponse struct {
 	TopSourceIPs    []SourceIPStat   `json:"top_source_ips,omitempty"`
 }
 
+// AttackTypeStat represents statistics for an attack type.
 type AttackTypeStat struct {
 	Type  string `json:"type"`
 	Count int64  `json:"count"`
 }
 
+// SourceIPStat represents statistics for a source IP address.
 type SourceIPStat struct {
 	IP      string `json:"ip"`
 	Country string `json:"country,omitempty"`
@@ -247,7 +252,7 @@ func runStatsLBHTTP(cmd *cobra.Command, args []string) error {
 
 	if err := resp.Error(); err != nil {
 		// If ML data endpoint fails, show basic configuration info
-		output.Warning("Detailed metrics not available. Showing configuration status.")
+		output.Warningf("Detailed metrics not available. Showing configuration status.")
 		return showLBConfigStatus(ctx, client, ns, name)
 	}
 
@@ -302,6 +307,7 @@ func runStatsLBHTTP(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+//nolint:unparam // ctx and client kept for API consistency with other status functions
 func showLBConfigStatus(ctx context.Context, client interface{}, ns, name string) error {
 	// Show basic LB configuration when detailed metrics aren't available
 	fmt.Printf("\n=== HTTP Load Balancer: %s ===\n\n", name)
@@ -414,12 +420,12 @@ func runStatsSecurity(cmd *cobra.Command, args []string) error {
 	path := fmt.Sprintf("/api/data/namespaces/%s/http_loadbalancers/%s/security_events/summary", ns, name)
 	resp, err := client.Get(ctx, path, query)
 	if err != nil {
-		output.Warning("Security metrics endpoint not available. Security statistics require additional API access.")
+		output.Warningf("Security metrics endpoint not available. Security statistics require additional API access.")
 		return nil
 	}
 
 	if err := resp.Error(); err != nil {
-		output.Warning("Unable to retrieve security statistics: %v", err)
+		output.Warningf("Unable to retrieve security statistics: %v", err)
 		fmt.Println("\nTo view security events, use the F5XC Console or ensure proper API permissions.")
 		return nil
 	}
@@ -500,7 +506,7 @@ func runStatsAPI(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := resp.Error(); err != nil {
-		output.Warning("API statistics not available. API discovery may need to be enabled on this load balancer.")
+		output.Warningf("API statistics not available. API discovery may need to be enabled on this load balancer.")
 		return nil
 	}
 

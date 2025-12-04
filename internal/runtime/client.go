@@ -64,8 +64,6 @@ func NewClient(cfg *config.Config, creds *config.Credentials) (*Client, error) {
 			}
 		}
 		authenticator = auth.NewP12Auth(profile.P12File, p12Password)
-	case "api-token":
-		fallthrough
 	default:
 		if creds == nil {
 			return nil, fmt.Errorf("credentials required for API token authentication")
@@ -93,7 +91,7 @@ func NewClient(cfg *config.Config, creds *config.Credentials) (*Client, error) {
 
 		// Retry on connection errors
 		if err != nil {
-			return true, nil
+			return true, err
 		}
 
 		// Retry on specific status codes
@@ -177,7 +175,7 @@ func NewClientFromEnv(opts ...ClientOption) (*Client, error) {
 			return false, ctx.Err()
 		}
 		if err != nil {
-			return true, nil
+			return true, err
 		}
 		switch resp.StatusCode {
 		case http.StatusTooManyRequests, http.StatusServiceUnavailable, http.StatusGatewayTimeout:

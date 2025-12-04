@@ -121,7 +121,7 @@ func runCertList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(list.Items) == 0 {
-		output.Info("No certificates found in namespace %q", ns)
+		output.Infof("No certificates found in namespace %q", ns)
 		return nil
 	}
 
@@ -220,8 +220,8 @@ The certificate and key files should be PEM encoded.`,
 	cmd.Flags().StringVar(&certFile, "cert-file", "", "path to certificate file (PEM format)")
 	cmd.Flags().StringVar(&keyFile, "key-file", "", "path to private key file (PEM format)")
 	cmd.Flags().StringVar(&certChain, "chain", "", "path to certificate chain file (PEM format)")
-	cmd.MarkFlagRequired("cert-file")
-	cmd.MarkFlagRequired("key-file")
+	_ = cmd.MarkFlagRequired("cert-file")
+	_ = cmd.MarkFlagRequired("key-file")
 
 	return cmd
 }
@@ -289,7 +289,7 @@ func runCertUpload(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("Certificate %q uploaded to namespace %q", name, ns)
+	output.Successf("Certificate %q uploaded to namespace %q", name, ns)
 	return nil
 }
 
@@ -321,7 +321,7 @@ func runCertDelete(cmd *cobra.Command, args []string) error {
 	if !certForce {
 		fmt.Printf("Are you sure you want to delete certificate %q? [y/N]: ", name)
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Canceled")
 			return nil
@@ -341,6 +341,6 @@ func runCertDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("Certificate %q deleted from namespace %q", name, ns)
+	output.Successf("Certificate %q deleted from namespace %q", name, ns)
 	return nil
 }

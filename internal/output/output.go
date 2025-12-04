@@ -49,8 +49,6 @@ func NewFormatter(format string) Formatter {
 		return &TextFormatter{}
 	case "jsonpath":
 		return &JSONPathFormatter{Expression: ""}
-	case "table":
-		fallthrough
 	default:
 		return &TableFormatter{}
 	}
@@ -321,23 +319,23 @@ type NamespaceOutput struct {
 	Status      string `json:"status"`
 }
 
-// Error prints an error message to stderr.
-func Error(format string, args ...interface{}) {
+// Errorf prints an error message to stderr.
+func Errorf(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
 }
 
-// Success prints a success message.
-func Success(format string, args ...interface{}) {
+// Successf prints a success message.
+func Successf(format string, args ...interface{}) {
 	fmt.Printf("✓ "+format+"\n", args...)
 }
 
-// Info prints an info message.
-func Info(format string, args ...interface{}) {
+// Infof prints an info message.
+func Infof(format string, args ...interface{}) {
 	fmt.Printf(format+"\n", args...)
 }
 
-// Warning prints a warning message.
-func Warning(format string, args ...interface{}) {
+// Warningf prints a warning message.
+func Warningf(format string, args ...interface{}) {
 	fmt.Printf("Warning: "+format+"\n", args...)
 }
 

@@ -230,7 +230,7 @@ func runNamespaceList(cmd *cobra.Command, args []string) error {
 
 	// Table output
 	if len(listResp.Items) == 0 {
-		output.Info("No namespaces found")
+		output.Infof("No namespaces found")
 		return nil
 	}
 
@@ -335,7 +335,7 @@ func runNamespaceCreate(cmd *cobra.Command, args []string) error {
 		return output.Print(outputFmt, nsResp)
 	}
 
-	output.Success("Namespace %q created successfully", name)
+	output.Successf("Namespace %q created successfully", name)
 	return nil
 }
 
@@ -351,7 +351,7 @@ func runNamespaceDelete(cmd *cobra.Command, args []string) error {
 	if !nsForce {
 		fmt.Printf("Are you sure you want to delete namespace %q? [y/N]: ", name)
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Canceled")
 			return nil
@@ -372,6 +372,6 @@ func runNamespaceDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("Namespace %q deleted successfully", name)
+	output.Successf("Namespace %q deleted successfully", name)
 	return nil
 }

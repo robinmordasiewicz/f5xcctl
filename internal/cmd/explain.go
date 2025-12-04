@@ -297,7 +297,7 @@ func getSpecFields(rt *ResourceType) []ResourceField {
 
 // GetAllResourceFields returns all available resources with their short descriptions for completion.
 func GetAllResourceFields() []string {
-	var resources []string
+	resources := make([]string, 0, len(ResourceRegistry))
 	for name, rt := range ResourceRegistry {
 		resources = append(resources, fmt.Sprintf("%s\t%s", name, rt.Description))
 	}

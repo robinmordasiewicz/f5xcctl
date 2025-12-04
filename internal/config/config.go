@@ -106,7 +106,7 @@ func Load(configFile, profileName string) (*Config, error) {
 // Save saves the configuration to file.
 func Save(cfg *Config) error {
 	configDir := DefaultConfigDir()
-	if err := os.MkdirAll(configDir, 0700); err != nil {
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -116,7 +116,7 @@ func Save(cfg *Config) error {
 	}
 
 	configPath := DefaultConfigPath()
-	if err := os.WriteFile(configPath, data, 0600); err != nil {
+	if err := os.WriteFile(configPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -146,7 +146,7 @@ func LoadCredentials() (*Credentials, error) {
 // SaveCredentials saves credentials to file with restricted permissions.
 func SaveCredentials(creds *Credentials) error {
 	configDir := DefaultConfigDir()
-	if err := os.MkdirAll(configDir, 0700); err != nil {
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -156,7 +156,7 @@ func SaveCredentials(creds *Credentials) error {
 	}
 
 	credsPath := DefaultCredentialsPath()
-	if err := os.WriteFile(credsPath, data, 0600); err != nil {
+	if err := os.WriteFile(credsPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write credentials file: %w", err)
 	}
 

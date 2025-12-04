@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -86,6 +87,7 @@ func (a *CertAuth) GetHTTPClient() (*http.Client, error) {
 
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	transport := &http.Transport{
@@ -127,6 +129,7 @@ func (a *P12Auth) GetHTTPClient() (*http.Client, error) {
 
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{*cert},
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	transport := &http.Transport{
@@ -177,7 +180,7 @@ func (a *BrowserAuth) Login() (*TokenResponse, error) {
 	}
 
 	// Create callback server
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", "127.0.0.1:0") //nolint:noctx // Simple local callback server
 	if err != nil {
 		return nil, fmt.Errorf("failed to create callback server: %w", err)
 	}
@@ -195,7 +198,9 @@ func (a *BrowserAuth) Login() (*TokenResponse, error) {
 	errChan := make(chan error)
 
 	// Start callback server
-	server := &http.Server{}
+	server := &http.Server{
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 	server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/callback" {
 			http.NotFound(w, r)
@@ -264,13 +269,13 @@ func (a *BrowserAuth) Login() (*TokenResponse, error) {
 
 	select {
 	case token := <-tokenChan:
-		server.Shutdown(context.Background())
+		_ = server.Shutdown(context.Background())
 		return token, nil
 	case err := <-errChan:
-		server.Shutdown(context.Background())
+		_ = server.Shutdown(context.Background())
 		return nil, err
 	case <-ctx.Done():
-		server.Shutdown(context.Background())
+		_ = server.Shutdown(context.Background())
 		return nil, fmt.Errorf("authentication timed out")
 	}
 }
@@ -286,7 +291,16 @@ func (a *BrowserAuth) exchangeCode(code, callbackURL string) (*TokenResponse, er
 	data.Set("redirect_uri", callbackURL)
 	data.Set("client_id", "f5xc-cli")
 
-	resp, err := http.PostForm(tokenURL, data)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // G107: URL is constructed from known config
 	if err != nil {
 		return nil, fmt.Errorf("token request failed: %w", err)
 	}
@@ -319,16 +333,19 @@ func generateState() (string, error) {
 }
 
 // openBrowser opens the URL in the default browser.
-func openBrowser(url string) error {
+func openBrowser(targetURL string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = exec.CommandContext(ctx, "open", targetURL)
 	case "linux":
-		cmd = exec.Command("xdg-open", url)
+		cmd = exec.CommandContext(ctx, "xdg-open", targetURL)
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", targetURL)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}

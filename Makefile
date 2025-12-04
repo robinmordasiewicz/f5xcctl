@@ -22,7 +22,7 @@ CMD_DIR := ./cmd/f5xcctl
 BUILD_DIR := ./build
 DIST_DIR := ./dist
 
-.PHONY: all build clean test test-unit test-integration lint fmt vet install generate help
+.PHONY: all build clean test test-unit test-integration lint fmt vet install generate help check run release release-snapshot build-all build-linux build-darwin build-windows
 
 ## help: Print this help message
 help:

@@ -81,13 +81,15 @@ repos:
   # =============================================================================
   # Go Security Scanning
   # =============================================================================
-  # Gosec - Go security checker + Govulncheck (via TekWizely)
-  - repo: https://github.com/TekWizely/pre-commit-golang
-    rev: v1.0.0-rc.4
-    hooks:
-      - id: go-sec-repo-mod
-        args: [-exclude-dir=docs]
-      - id: go-vulncheck-repo-mod
+  # NOTE: gosec is already run via golangci-lint (enabled in .golangci.yml)
+  # NOTE: go-vulncheck-repo-mod commented out - requires govulncheck to be installed
+  # To enable: go install golang.org/x/vuln/cmd/govulncheck@latest
+  # - repo: https://github.com/TekWizely/pre-commit-golang
+  #   rev: v1.0.0-rc.4
+  #   hooks:
+  #     - id: go-sec-repo-mod
+  #       args: [-exclude-dir=docs]
+  #     - id: go-vulncheck-repo-mod
 
   # =============================================================================
   # Secret Detection

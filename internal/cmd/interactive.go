@@ -496,7 +496,7 @@ func (c *interactiveCompleter) Complete(d prompt.Document) []prompt.Suggest {
 	return c.completeCommand(args, word, text)
 }
 
-func (c *interactiveCompleter) completeCommand(args []string, word string, text string) []prompt.Suggest {
+func (c *interactiveCompleter) completeCommand(args []string, word, text string) []prompt.Suggest {
 	// Try progressively longer command paths
 	for i := len(args); i >= 0; i-- {
 		var path string
@@ -549,7 +549,7 @@ func (c *interactiveCompleter) completeFlags(args []string, word string) []promp
 	suggestions = append(suggestions, globalFlags...)
 
 	// Filter mutually exclusive flags: -A and -n cannot be used together
-	var filtered []prompt.Suggest
+	filtered := make([]prompt.Suggest, 0, len(suggestions))
 	for _, s := range suggestions {
 		// If -A is already used, skip -n/--namespace suggestions
 		if hasAllNamespaces && (s.Text == "-n" || s.Text == "--namespace") {
@@ -656,7 +656,7 @@ func executor(input string) {
 
 	// Handle help
 	if input == "help" {
-		rootCmd.Help()
+		_ = rootCmd.Help()
 		return
 	}
 
@@ -667,9 +667,7 @@ func executor(input string) {
 	rootCmd.SetArgs(args)
 
 	// Capture and restore stdout/stderr
-	if err := rootCmd.Execute(); err != nil {
-		// Error is already printed by cobra
-	}
+	_ = rootCmd.Execute() // Error is already printed by cobra
 
 	// Reset command state for next execution
 	resetCommandState()

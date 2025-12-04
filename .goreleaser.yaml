@@ -6,7 +6,12 @@ before:
     - go mod tidy
     - go generate ./...
     # Generate shell completions
-    - sh -c "mkdir -p completions && go build -o f5xcctl-tmp ./cmd/f5xcctl && ./f5xcctl-tmp completion bash > completions/f5xcctl.bash && ./f5xcctl-tmp completion zsh > completions/_f5xcctl && ./f5xcctl-tmp completion fish > completions/f5xcctl.fish && rm f5xcctl-tmp"
+    - mkdir -p completions
+    - go build -o f5xcctl-tmp ./cmd/f5xcctl
+    - ./f5xcctl-tmp completion bash > completions/f5xcctl.bash
+    - ./f5xcctl-tmp completion zsh > completions/_f5xcctl
+    - ./f5xcctl-tmp completion fish > completions/f5xcctl.fish
+    - rm f5xcctl-tmp
 
 builds:
   - main: ./cmd/f5xcctl

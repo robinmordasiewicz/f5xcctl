@@ -110,11 +110,11 @@ func init() {
 	rootCmd.PersistentFlags().CountVarP(&verbosity, "verbose", "v", "verbosity level (use -v, -vv, -vvv, or -v=N)")
 
 	// Bind flags to viper
-	viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
-	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
-	viper.BindPFlag("namespace", rootCmd.PersistentFlags().Lookup("namespace"))
-	viper.BindPFlag("tenant", rootCmd.PersistentFlags().Lookup("tenant"))
-	viper.BindPFlag("api-url", rootCmd.PersistentFlags().Lookup("api-url"))
+	_ = viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
+	_ = viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
+	_ = viper.BindPFlag("namespace", rootCmd.PersistentFlags().Lookup("namespace"))
+	_ = viper.BindPFlag("tenant", rootCmd.PersistentFlags().Lookup("tenant"))
+	_ = viper.BindPFlag("api-url", rootCmd.PersistentFlags().Lookup("api-url"))
 
 	// Add subcommands
 	rootCmd.AddCommand(versionCmd)

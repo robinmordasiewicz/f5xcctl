@@ -132,7 +132,7 @@ func runDNSZoneList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(list.Items) == 0 {
-		output.Info("No DNS zones found in namespace %q", ns)
+		output.Infof("No DNS zones found in namespace %q", ns)
 		return nil
 	}
 
@@ -230,7 +230,7 @@ func newDNSZoneCreateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&dnsSpecFile, "spec-file", "f", "", "path to specification file (required)")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -278,7 +278,7 @@ func runDNSZoneCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("DNS zone %q created in namespace %q", name, ns)
+	output.Successf("DNS zone %q created in namespace %q", name, ns)
 	return nil
 }
 
@@ -291,7 +291,7 @@ func newDNSZoneUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&dnsSpecFile, "spec-file", "f", "", "path to specification file (required)")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -339,7 +339,7 @@ func runDNSZoneUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("DNS zone %q updated in namespace %q", name, ns)
+	output.Successf("DNS zone %q updated in namespace %q", name, ns)
 	return nil
 }
 
@@ -371,7 +371,7 @@ func runDNSZoneDelete(cmd *cobra.Command, args []string) error {
 	if !dnsForce {
 		fmt.Printf("Are you sure you want to delete DNS zone %q? [y/N]: ", name)
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Canceled")
 			return nil
@@ -391,6 +391,6 @@ func runDNSZoneDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("DNS zone %q deleted from namespace %q", name, ns)
+	output.Successf("DNS zone %q deleted from namespace %q", name, ns)
 	return nil
 }

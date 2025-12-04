@@ -1,25 +1,29 @@
 # f5xcctl - F5 Distributed Cloud CLI
 
 ## Purpose
+
 A kubectl-style command-line interface for managing F5 Distributed Cloud (F5XC) resources. Provides CRUD operations for load balancers, origin pools, firewalls, certificates, DNS, and more.
 
 ## Tech Stack
+
 - **Language**: Go 1.25.3
-- **CLI Framework**: Cobra (github.com/spf13/cobra)
-- **Config Management**: Viper (github.com/spf13/viper)
-- **HTTP Client**: go-retryablehttp (with automatic retries)
+- **CLI Framework**: Cobra (GitHub.com/spf13/cobra)
+- **Config Management**: Viper (GitHub.com/spf13/viper)
+- **HTTP Client**: Go-retryablehttp (with automatic retries)
 - **Testing**: stretchr/testify
-- **Config Format**: YAML (gopkg.in/yaml.v3)
-- **Certificate Handling**: go-pkcs12 for P12 bundles
+- **Config Format**: YAML (gopkg.in/YAML.v3)
+- **Certificate Handling**: Go-pkcs12 for P12 bundles
 
 ## Authentication Methods
+
 1. **API Token** - Bearer token authentication
 2. **Certificate** - X.509 client certificate (cert + key files)
 3. **P12/PKCS#12** - Certificate bundle with password
 4. **Browser/SSO** - OAuth flow with browser callback
 
 ## Project Structure
-```
+
+```text
 f5xcctl/
 ├── cmd/f5xcctl/          # Entry point (main.go)
 ├── internal/
@@ -36,6 +40,7 @@ f5xcctl/
 ```
 
 ## Key Commands
+
 - `f5xcctl` - Interactive mode (default)
 - `f5xcctl get <resource>` - List resources
 - `f5xcctl describe <resource> <name>` - Show details
@@ -44,11 +49,13 @@ f5xcctl/
 - `f5xcctl configure` - Setup configuration
 
 ## Configuration
+
 - Config file: `~/.f5xc/config.yaml`
 - Credentials: `~/.f5xc/credentials` (restricted permissions)
 - Supports multiple profiles
 
 ## Environment Variables
+
 - `F5XC_API_TOKEN` - API token
 - `F5XC_API_URL` - API endpoint URL
 - `F5XC_TENANT` - Tenant name

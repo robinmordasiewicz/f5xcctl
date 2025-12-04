@@ -33,10 +33,10 @@ type ResourceType struct {
 	SupportedVerbs []string
 }
 
-// Standard verbs supported by most resources.
+// StandardVerbs are the standard verbs supported by most resources.
 var StandardVerbs = []string{"get", "list", "create", "delete", "replace", "apply"}
 
-// AllVerbs includes all possible verbs.
+// AllVerbs are all possible verbs including extended operations.
 var AllVerbs = []string{"get", "list", "create", "delete", "replace", "apply", "patch", "label", "annotate", "describe"}
 
 // ResourceRegistry holds all known F5XC resource types.
@@ -352,7 +352,7 @@ func GetResourceGroups() map[string][]*ResourceType {
 
 // ListResourceTypes returns all resource type names for completion.
 func ListResourceTypes() []string {
-	var names []string
+	names := make([]string, 0, len(ResourceRegistry))
 	for name := range ResourceRegistry {
 		names = append(names, name)
 	}

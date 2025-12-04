@@ -142,7 +142,7 @@ func runOriginPoolList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(list.Items) == 0 {
-		output.Info("No origin pools found in namespace %q", ns)
+		output.Infof("No origin pools found in namespace %q", ns)
 		return nil
 	}
 
@@ -274,7 +274,7 @@ the origin pool configuration including origin servers and health checks.`,
 	}
 
 	cmd.Flags().StringVarP(&opSpecFile, "spec-file", "f", "", "path to specification file (required)")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -326,7 +326,7 @@ func runOriginPoolCreate(cmd *cobra.Command, args []string) error {
 		return output.Print(outputFmt, op)
 	}
 
-	output.Success("Origin pool %q created in namespace %q", name, ns)
+	output.Successf("Origin pool %q created in namespace %q", name, ns)
 	return nil
 }
 
@@ -342,7 +342,7 @@ func newOriginPoolUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opSpecFile, "spec-file", "f", "", "path to specification file (required)")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -394,7 +394,7 @@ func runOriginPoolUpdate(cmd *cobra.Command, args []string) error {
 		return output.Print(outputFmt, op)
 	}
 
-	output.Success("Origin pool %q updated in namespace %q", name, ns)
+	output.Successf("Origin pool %q updated in namespace %q", name, ns)
 	return nil
 }
 
@@ -432,7 +432,7 @@ func runOriginPoolDelete(cmd *cobra.Command, args []string) error {
 	if !opForce {
 		fmt.Printf("Are you sure you want to delete origin pool %q in namespace %q? [y/N]: ", name, ns)
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Canceled")
 			return nil
@@ -452,7 +452,7 @@ func runOriginPoolDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("Origin pool %q deleted from namespace %q", name, ns)
+	output.Successf("Origin pool %q deleted from namespace %q", name, ns)
 	return nil
 }
 

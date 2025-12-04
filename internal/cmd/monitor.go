@@ -133,7 +133,7 @@ func runAlertPolicyList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(list.Items) == 0 {
-		output.Info("No alert policies found in namespace %q", ns)
+		output.Infof("No alert policies found in namespace %q", ns)
 		return nil
 	}
 
@@ -228,7 +228,7 @@ func newAlertPolicyCreateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&alertSpecFile, "spec-file", "f", "", "path to specification file (required)")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -276,7 +276,7 @@ func runAlertPolicyCreate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("Alert policy %q created in namespace %q", name, ns)
+	output.Successf("Alert policy %q created in namespace %q", name, ns)
 	return nil
 }
 
@@ -289,7 +289,7 @@ func newAlertPolicyUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&alertSpecFile, "spec-file", "f", "", "path to specification file (required)")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -337,7 +337,7 @@ func runAlertPolicyUpdate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("Alert policy %q updated in namespace %q", name, ns)
+	output.Successf("Alert policy %q updated in namespace %q", name, ns)
 	return nil
 }
 
@@ -369,7 +369,7 @@ func runAlertPolicyDelete(cmd *cobra.Command, args []string) error {
 	if !alertForce {
 		fmt.Printf("Are you sure you want to delete alert policy %q? [y/N]: ", name)
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Canceled")
 			return nil
@@ -389,6 +389,6 @@ func runAlertPolicyDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("Alert policy %q deleted from namespace %q", name, ns)
+	output.Successf("Alert policy %q deleted from namespace %q", name, ns)
 	return nil
 }

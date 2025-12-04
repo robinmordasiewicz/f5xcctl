@@ -31,6 +31,7 @@ go test -v -run TestName ./internal/cmd/...
 ## Architecture
 
 ### Command Structure (Cobra-based)
+
 - **Entry point**: `cmd/f5xcctl/main.go` - minimal, sets version info and calls `cmd.Execute()`
 - **Root command**: `internal/cmd/root.go` - defines global flags, initializes config, registers subcommands
 - **Verbs**: `internal/cmd/verbs.go` - kubectl-style commands (get, create, delete, apply, describe, replace, label)
@@ -41,24 +42,28 @@ go test -v -run TestName ./internal/cmd/...
 **Resource Resolution**: All resource types are registered in `ResourceRegistry` with canonical names, plurals, short forms, and aliases. Use `ResolveResourceType(name)` to resolve any alias to its `*ResourceType`.
 
 **API Client** (`internal/runtime/client.go`):
+
 - `NewClient()` - creates client from config file + credentials
 - `NewClientFromEnv()` - creates client from environment variables (for testing)
 - Uses `retryablehttp` with automatic retries on 429, 503, 504
 - Authentication via `Authenticator` interface (token, cert, P12)
 
 **Authentication** (`internal/auth/`):
+
 - `TokenAuth` - API token in Authorization header
 - `CertAuth` - X.509 client certificate
 - `P12Auth` - PKCS#12 certificate bundle
 - `BrowserAuth` - OAuth flow with local callback server
 
 **Configuration** (`internal/config/config.go`):
+
 - Config file: `~/.f5xc/config.yaml` (profiles with tenant, API URL, auth method)
 - Credentials file: `~/.f5xc/credentials` (API tokens, P12 passwords)
 
 ### Adding a New Resource Type
 
 1. Add entry to `ResourceRegistry` in `internal/cmd/resources.go`:
+
 ```go
 "new_resource": {
     Name:           "new_resource",
@@ -71,11 +76,13 @@ go test -v -run TestName ./internal/cmd/...
     SupportedVerbs: AllVerbs,
 },
 ```
-2. The verb commands (get, create, delete, etc.) automatically work with any registered resource type.
+
+1. The verb commands (get, create, delete, etc.) automatically work with any registered resource type.
 
 ### Adding a New Command
 
 For resource-specific commands (beyond standard CRUD), see patterns in:
+
 - `internal/cmd/lb.go` - load balancer specific commands
 - `internal/cmd/security.go` - security resource commands
 - `internal/cmd/cert.go` - certificate commands
@@ -85,6 +92,7 @@ Pattern: Create `newXxxCmd()` factory function returning `*cobra.Command`, add t
 ## Environment Variables
 
 For integration testing:
+
 - `F5XC_API_URL` - API base URL (required)
 - `F5XC_API_TOKEN` - API token auth
 - `F5XC_API_P12_FILE` + `F5XC_P12_PASSWORD` - P12 cert auth

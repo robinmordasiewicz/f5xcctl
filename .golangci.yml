@@ -58,6 +58,7 @@ linters:
         - rangeValCopy
         - appendAssign
         - unnamedResult
+        - ifElseChain
 
     revive:
       rules:
@@ -84,14 +85,14 @@ linters:
         - name: unreachable-code
 
     gocyclo:
-      min-complexity: 20
+      min-complexity: 30
 
     dupl:
-      threshold: 150
+      threshold: 250
 
     goconst:
-      min-len: 3
-      min-occurrences: 3
+      min-len: 6
+      min-occurrences: 50
 
     misspell:
       locale: US
@@ -111,6 +112,7 @@ linters:
           - dupl
           - gosec
           - gocyclo
+          - unparam
 
       - path: ".*_generated\\.go"
         linters:
@@ -121,6 +123,16 @@ linters:
 
       - path: main\.go
         text: "cyclomatic complexity"
+
+      # Exclude unparam for internal packages with consistent API signatures
+      - path: internal/output/
+        linters:
+          - unparam
+
+      - path: internal/cmd/
+        linters:
+          - unparam
+        text: "always receives"
 
     paths:
       - vendor

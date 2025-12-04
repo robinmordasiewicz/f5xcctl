@@ -148,7 +148,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		fmt.Println("Status: Not configured")
 		fmt.Println("\nRun 'f5xcctl configure' to set up the CLI")
-		return nil
+		return nil //nolint:nilerr // intentionally return nil to show friendly status
 	}
 
 	creds, err := config.LoadCredentials()
@@ -156,7 +156,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Profile: %s\n", cfg.CurrentProfile)
 		fmt.Println("Status:  Not authenticated")
 		fmt.Println("\nRun 'f5xcctl auth login' to authenticate")
-		return nil
+		return nil //nolint:nilerr // intentionally return nil to show friendly status
 	}
 
 	profileCreds, ok := creds.Profiles[cfg.CurrentProfile]

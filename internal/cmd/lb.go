@@ -161,7 +161,7 @@ func runHTTPLBList(cmd *cobra.Command, args []string) error {
 
 	// Table output
 	if len(list.Items) == 0 {
-		output.Info("No HTTP load balancers found in namespace %q", ns)
+		output.Infof("No HTTP load balancers found in namespace %q", ns)
 		return nil
 	}
 
@@ -306,7 +306,7 @@ the load balancer configuration including domains, routes, and origin pools.`,
 
 	cmd.Flags().StringVarP(&lbSpecFile, "spec-file", "f", "", "path to specification file (required)")
 	cmd.Flags().BoolVar(&lbWait, "wait", false, "wait for load balancer to be ready")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -360,10 +360,10 @@ func runHTTPLBCreate(cmd *cobra.Command, args []string) error {
 		return output.Print(outputFmt, lb)
 	}
 
-	output.Success("HTTP load balancer %q created in namespace %q", name, ns)
+	output.Successf("HTTP load balancer %q created in namespace %q", name, ns)
 
 	if lbWait {
-		output.Info("Note: --wait not yet implemented")
+		output.Infof("Note: --wait not yet implemented")
 	}
 
 	return nil
@@ -387,7 +387,7 @@ the complete load balancer configuration.`,
 	}
 
 	cmd.Flags().StringVarP(&lbSpecFile, "spec-file", "f", "", "path to specification file (required)")
-	cmd.MarkFlagRequired("spec-file")
+	_ = cmd.MarkFlagRequired("spec-file")
 
 	return cmd
 }
@@ -441,7 +441,7 @@ func runHTTPLBUpdate(cmd *cobra.Command, args []string) error {
 		return output.Print(outputFmt, lb)
 	}
 
-	output.Success("HTTP load balancer %q updated in namespace %q", name, ns)
+	output.Successf("HTTP load balancer %q updated in namespace %q", name, ns)
 	return nil
 }
 
@@ -483,7 +483,7 @@ func runHTTPLBDelete(cmd *cobra.Command, args []string) error {
 	if !lbForce {
 		fmt.Printf("Are you sure you want to delete HTTP load balancer %q in namespace %q? [y/N]: ", name, ns)
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Canceled")
 			return nil
@@ -503,7 +503,7 @@ func runHTTPLBDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	output.Success("HTTP load balancer %q deleted from namespace %q", name, ns)
+	output.Successf("HTTP load balancer %q deleted from namespace %q", name, ns)
 	return nil
 }
 
