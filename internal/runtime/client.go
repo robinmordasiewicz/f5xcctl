@@ -344,6 +344,15 @@ func (c *Client) Delete(ctx context.Context, path string) (*Response, error) {
 	})
 }
 
+// Patch performs a PATCH request.
+func (c *Client) Patch(ctx context.Context, path string, body interface{}) (*Response, error) {
+	return c.Do(ctx, &Request{
+		Method: http.MethodPatch,
+		Path:   path,
+		Body:   body,
+	})
+}
+
 // IsSuccess returns true if the response indicates success.
 func (r *Response) IsSuccess() bool {
 	return r.StatusCode >= 200 && r.StatusCode < 300
