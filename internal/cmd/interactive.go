@@ -9,6 +9,8 @@ import (
 
 	"github.com/c-bata/go-prompt"
 	"github.com/spf13/cobra"
+
+	"github.com/f5/f5xcctl/internal/config"
 )
 
 var interactiveCmd = &cobra.Command{
@@ -422,6 +424,37 @@ var globalFlags = []prompt.Suggest{
 var cachedNamespaces []prompt.Suggest
 var namespaceCacheTime time.Time
 
+// interactiveTenant stores the tenant name for the prompt.
+var interactiveTenant string
+
+// interactiveNamespace stores the current namespace for the prompt.
+var interactiveNamespace string
+
+// getLivePrefix returns the dynamic prompt prefix showing tenant/namespace.
+func getLivePrefix() (string, bool) {
+	ns := interactiveNamespace
+	if ns == "" {
+		ns = "default"
+	}
+
+	tenant := interactiveTenant
+	if tenant == "" {
+		tenant = "f5xc"
+	}
+
+	// Shorten tenant name if it's too long (remove common suffixes)
+	if len(tenant) > 20 {
+		// Try to find a shorter form
+		parts := strings.Split(tenant, "-")
+		if len(parts) > 2 {
+			// Take first two parts for readability
+			tenant = parts[0] + "-" + parts[1]
+		}
+	}
+
+	return fmt.Sprintf("%s/%s> ", tenant, ns), true
+}
+
 // interactiveCompleter provides contextual completions.
 type interactiveCompleter struct{}
 
@@ -666,8 +699,10 @@ func executor(input string) {
 	// Reset flags to defaults before each command
 	rootCmd.SetArgs(args)
 
-	// Capture and restore stdout/stderr
-	_ = rootCmd.Execute() // Error is already printed by cobra
+	// Execute and handle errors (SilenceErrors is true, so we must print errors ourselves)
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	}
 
 	// Reset command state for next execution
 	resetCommandState()
@@ -675,8 +710,15 @@ func executor(input string) {
 
 // resetCommandState resets global variables that might persist between commands.
 func resetCommandState() {
+	// Update interactive namespace if it was changed via -n flag
+	if namespace != "" {
+		interactiveNamespace = namespace
+	}
+
 	// Reset output format
 	outputFmt = "table"
+	// Reset namespace to use the interactive default (not the flag value)
+	namespace = interactiveNamespace
 	// Reset namespace flags
 	nsDescription = ""
 	nsLabels = nil
@@ -685,6 +727,9 @@ func resetCommandState() {
 }
 
 func runInteractive(cmd *cobra.Command, args []string) {
+	// Initialize tenant and namespace from config
+	initInteractivePrompt()
+
 	fmt.Println("F5 Distributed Cloud Interactive Shell")
 	fmt.Println("Type 'help' for available commands, 'exit' to quit")
 	fmt.Println("Use Tab for auto-completion")
@@ -695,7 +740,7 @@ func runInteractive(cmd *cobra.Command, args []string) {
 	p := prompt.New(
 		executor,
 		completer.Complete,
-		prompt.OptionPrefix("f5xc> "),
+		prompt.OptionLivePrefix(getLivePrefix),
 		prompt.OptionPrefixTextColor(prompt.Cyan),
 		prompt.OptionTitle("F5XC Interactive Shell"),
 		prompt.OptionMaxSuggestion(15),
@@ -715,4 +760,29 @@ func runInteractive(cmd *cobra.Command, args []string) {
 	)
 
 	p.Run()
+}
+
+// initInteractivePrompt initializes the tenant and namespace for the prompt.
+func initInteractivePrompt() {
+	// Load config to get tenant
+	cfg, err := config.Load("", "")
+	if err == nil && cfg != nil {
+		profile := cfg.GetCurrentProfile()
+		if profile != nil {
+			interactiveTenant = profile.Tenant
+			if profile.DefaultNamespace != "" {
+				interactiveNamespace = profile.DefaultNamespace
+			}
+		}
+	}
+
+	// Use global namespace if set via flag
+	if namespace != "" {
+		interactiveNamespace = namespace
+	}
+
+	// Use global tenant if set via flag
+	if tenant != "" {
+		interactiveTenant = tenant
+	}
 }
