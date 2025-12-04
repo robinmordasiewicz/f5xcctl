@@ -122,3 +122,15 @@ brews:
       fish_completion.install "completions/f5xcctl.fish"
     test: |
       system "#{bin}/f5xcctl", "version"
+    caveats: |
+      Shell completions have been installed.
+
+      For zsh, ensure compinit is enabled in ~/.zshrc:
+        autoload -Uz compinit && compinit
+
+      For bash, add to ~/.bashrc:
+        source $(brew --prefix)/etc/bash_completion.d/f5xcctl
+
+      Get started:
+        f5xcctl configure    # Set up API credentials
+        f5xcctl get --help   # List available resources
