@@ -13,15 +13,18 @@ import (
 )
 
 var (
-	cfgFile     string
-	profile     string
-	outputFmt   string
-	namespace   string
-	tenant      string
-	apiURL      string
-	debug       bool
-	verbosity   int
-	versionInfo VersionInfo
+	cfgFile                  string
+	profile                  string
+	outputFmt                string
+	namespace                string
+	tenant                   string
+	apiURL                   string
+	debug                    bool
+	verbosity                int
+	versionInfo              VersionInfo
+	noHeaders                bool
+	templateFile             string
+	allowMissingTemplateKeys bool
 )
 
 // VersionInfo holds version metadata.
@@ -102,12 +105,17 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.f5xcctl/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&profile, "profile", "", "configuration profile to use")
-	rootCmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "output format: table, json, yaml, text")
+	rootCmd.PersistentFlags().StringVar(&profile, "context", "", "alias for --profile (kubectl compatibility)")
+	rootCmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", `output format: table, wide, json, yaml, name,
+jsonpath='{.field}', custom-columns='NAME:.metadata.name,...', go-template='{{.field}}'`)
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "namespace for the operation")
 	rootCmd.PersistentFlags().StringVar(&tenant, "tenant", "", "F5XC tenant name")
 	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", "", "F5XC API URL")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug output")
 	rootCmd.PersistentFlags().CountVarP(&verbosity, "verbose", "v", "verbosity level (use -v, -vv, -vvv, or -v=N)")
+	rootCmd.PersistentFlags().BoolVar(&noHeaders, "no-headers", false, "don't print headers in table output")
+	rootCmd.PersistentFlags().StringVar(&templateFile, "template", "", "template file for go-template output format")
+	rootCmd.PersistentFlags().BoolVar(&allowMissingTemplateKeys, "allow-missing-template-keys", true, "ignore missing keys in templates")
 
 	// Bind flags to viper
 	_ = viper.BindPFlag("profile", rootCmd.PersistentFlags().Lookup("profile"))
@@ -206,4 +214,24 @@ func GetVerbosity() int {
 // IsVerbose returns true if verbosity is at least the given level.
 func IsVerbose(level int) bool {
 	return verbosity >= level
+}
+
+// NoHeaders returns whether to suppress headers in table output.
+func NoHeaders() bool {
+	return noHeaders
+}
+
+// GetTemplateFile returns the path to an external template file.
+func GetTemplateFile() string {
+	return templateFile
+}
+
+// AllowMissingTemplateKeys returns whether to ignore missing template keys.
+func AllowMissingTemplateKeys() bool {
+	return allowMissingTemplateKeys
+}
+
+// GetOutputFormat returns the current output format string.
+func GetOutputFormat() string {
+	return outputFmt
 }

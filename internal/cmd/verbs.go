@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -35,6 +37,12 @@ var (
 	// Pagination flags.
 	limit     int
 	pageToken string
+	// Get command flags.
+	ignoreNotFound bool
+	labelColumns   []string
+	sortBy         string
+	// Delete command flags.
+	deleteAll bool
 )
 
 // ============================================================================
@@ -75,7 +83,22 @@ Examples:
   f5xcctl get ns        # namespaces
   f5xcctl get op        # origin_pools
   f5xcctl get af        # app_firewalls
-  f5xcctl get cert      # certificates`,
+  f5xcctl get cert      # certificates
+
+  # JSONPath output - extract specific fields
+  f5xcctl get httplb -o jsonpath='{.items[*].metadata.name}'
+
+  # Custom columns output
+  f5xcctl get httplb -o custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace
+
+  # Go template output
+  f5xcctl get httplb -o go-template='{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'
+
+  # Go template from file
+  f5xcctl get httplb -o go-template --template=my-template.tmpl
+
+  # Table without headers (useful for scripting)
+  f5xcctl get httplb --no-headers`,
 	Args:              cobra.MinimumNArgs(1),
 	RunE:              runGet,
 	ValidArgsFunction: completeResourceTypes,
@@ -109,9 +132,9 @@ Examples:
 // ============================================================================
 
 var deleteCmd = &cobra.Command{
-	Use:   "delete <resource-type> <name> [flags]",
-	Short: "Delete resources by name or from file",
-	Long: `Delete resources by resource type and name, or from files.
+	Use:   "delete <resource-type> [name]... [flags]",
+	Short: "Delete resources by name, selector, or all",
+	Long: `Delete resources by resource type and name, by label selector, or delete all.
 
 Examples:
   # Delete a load balancer
@@ -127,7 +150,19 @@ Examples:
   f5xcctl delete httplb lb1 lb2 lb3 -n production
 
   # Force delete without confirmation
-  f5xcctl delete httplb my-lb -n production --force`,
+  f5xcctl delete httplb my-lb -n production --force
+
+  # Delete all load balancers in namespace
+  f5xcctl delete httplb --all -n production
+
+  # Delete all load balancers across all namespaces
+  f5xcctl delete httplb --all -A
+
+  # Delete by label selector
+  f5xcctl delete httplb -l env=test -n production
+
+  # Delete by selector across all namespaces
+  f5xcctl delete httplb -l env=test -A`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runDelete,
 }
@@ -259,6 +294,9 @@ func init() {
 	getCmd.Flags().BoolVarP(&watchFlag, "watch", "w", false, "Watch for changes")
 	getCmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of resources to list (0 = unlimited)")
 	getCmd.Flags().StringVar(&pageToken, "page-token", "", "Token for paginated results (provided in previous response)")
+	getCmd.Flags().BoolVar(&ignoreNotFound, "ignore-not-found", false, "Treat 'resource not found' as successful retrieval (exit code 0)")
+	getCmd.Flags().StringSliceVarP(&labelColumns, "label-columns", "L", nil, "Show specific labels as columns (e.g., -L env,team)")
+	getCmd.Flags().StringVar(&sortBy, "sort-by", "", "Sort output by JSONPath expression (e.g., '.metadata.name')")
 
 	// CREATE flags
 	createCmd.Flags().StringVarP(&filename, "filename", "f", "", "Filename, directory, or URL to files to create")
@@ -270,6 +308,9 @@ func init() {
 	deleteCmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
 	deleteCmd.Flags().IntVar(&gracePeriod, "grace-period", -1, "Seconds to wait before force deletion")
 	deleteCmd.Flags().BoolVar(&wait, "wait", false, "Wait for deletion to complete")
+	deleteCmd.Flags().BoolVar(&deleteAll, "all", false, "Delete all resources of this type in the namespace")
+	deleteCmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "Delete resources across all namespaces (requires --all or -l)")
+	deleteCmd.Flags().StringVarP(&labelSelector, "selector", "l", "", "Label selector for filtering resources to delete (e.g., 'env=prod')")
 
 	// APPLY flags
 	applyCmd.Flags().StringVarP(&filename, "filename", "f", "", "Filename, directory, or URL to files (required)")
@@ -335,10 +376,19 @@ func runGet(cmd *cobra.Command, args []string) error {
 		path := rt.GetItemPath(ns, resourceName)
 		resp, err := client.Get(ctx, path, nil)
 		if err != nil {
+			if ignoreNotFound {
+				return nil
+			}
 			return fmt.Errorf("failed to get %s %q: %w", rt.Name, resourceName, err)
 		}
-		if err := resp.Error(); err != nil {
-			return err
+		if respErr := resp.Error(); respErr != nil {
+			// Check if it's a not found error
+			if ignoreNotFound {
+				if apiErr, ok := respErr.(*runtime.APIError); ok && apiErr.IsNotFound() {
+					return nil
+				}
+			}
+			return respErr
 		}
 
 		var result map[string]interface{}
@@ -398,6 +448,11 @@ func runGet(cmd *cobra.Command, args []string) error {
 	// Apply client-side field selector filtering
 	if fieldSelector != "" {
 		result = filterByFieldSelector(result, fieldSelector)
+	}
+
+	// Apply sorting if --sort-by is specified
+	if sortBy != "" {
+		result = sortResourcesByField(result, sortBy)
 	}
 
 	if err := printResourceList(result, rt, ns); err != nil {
@@ -474,8 +529,8 @@ func runDelete(cmd *cobra.Command, args []string) error {
 		return deleteFromFile(filename)
 	}
 
-	if len(args) < 2 {
-		return fmt.Errorf("resource type and name required\n\nUsage: f5xcctl delete <resource-type> <name>... [flags]")
+	if len(args) < 1 {
+		return fmt.Errorf("resource type required\n\nUsage: f5xcctl delete <resource-type> [name]... [flags]")
 	}
 
 	resourceType := args[0]
@@ -484,6 +539,34 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	rt := ResolveResourceType(resourceType)
 	if rt == nil {
 		return fmt.Errorf("unknown resource type: %s", resourceType)
+	}
+
+	// Validate flag combinations
+	if allNamespaces && !deleteAll && labelSelector == "" {
+		return fmt.Errorf("--all-namespaces requires --all or -l selector")
+	}
+
+	client, err := getClient()
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Handle --all flag: delete all resources of this type
+	if deleteAll {
+		return deleteAllResources(ctx, client, rt)
+	}
+
+	// Handle -l/--selector flag: delete by label selector
+	if labelSelector != "" && len(resourceNames) == 0 {
+		return deleteBySelector(ctx, client, rt)
+	}
+
+	// Standard deletion by name
+	if len(resourceNames) == 0 {
+		return fmt.Errorf("resource name required (or use --all or -l selector)\n\nUsage: f5xcctl delete <resource-type> <name>... [flags]")
 	}
 
 	ns := namespace
@@ -505,14 +588,6 @@ func runDelete(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 	}
-
-	client, err := getClient()
-	if err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	// Handle grace period
 	if gracePeriod > 0 {
@@ -561,6 +636,223 @@ func runDelete(cmd *cobra.Command, args []string) error {
 				errors = append(errors, fmt.Sprintf("%s: %v", name, err))
 			}
 		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("some resources failed to delete:\n  %s", strings.Join(errors, "\n  "))
+	}
+	return nil
+}
+
+// deleteAllResources deletes all resources of a given type.
+func deleteAllResources(ctx context.Context, client *runtime.Client, rt *ResourceType) error {
+	var namespaces []string
+
+	if allNamespaces && rt.Namespaced {
+		// Get all namespaces
+		resp, err := client.Get(ctx, "/api/web/namespaces", nil)
+		if err != nil {
+			return fmt.Errorf("failed to list namespaces: %w", err)
+		}
+		var nsResp struct {
+			Items []struct {
+				Name string `json:"name"`
+			} `json:"items"`
+		}
+		if err := resp.DecodeJSON(&nsResp); err != nil {
+			return err
+		}
+		for _, ns := range nsResp.Items {
+			namespaces = append(namespaces, ns.Name)
+		}
+	} else {
+		ns := namespace
+		if rt.Namespaced && ns == "" {
+			ns = "default"
+		}
+		namespaces = []string{ns}
+	}
+
+	// Collect all resources to delete
+	var toDelete []struct {
+		name      string
+		namespace string
+	}
+
+	for _, ns := range namespaces {
+		path := rt.GetAPIPath(ns)
+		resp, err := client.Get(ctx, path, nil)
+		if err != nil || !resp.IsSuccess() {
+			continue
+		}
+
+		var listResp struct {
+			Items []map[string]interface{} `json:"items"`
+		}
+		if err := resp.DecodeJSON(&listResp); err != nil {
+			continue
+		}
+
+		for _, item := range listResp.Items {
+			name := extractName(item)
+			toDelete = append(toDelete, struct {
+				name      string
+				namespace string
+			}{name: name, namespace: ns})
+		}
+	}
+
+	if len(toDelete) == 0 {
+		output.Infof("No %s found to delete", rt.Plural)
+		return nil
+	}
+
+	// Confirmation
+	if !force {
+		fmt.Printf("You are about to delete %d %s:\n", len(toDelete), rt.Plural)
+		for _, item := range toDelete {
+			if rt.Namespaced {
+				fmt.Printf("  - %s/%s (namespace: %s)\n", rt.Name, item.name, item.namespace)
+			} else {
+				fmt.Printf("  - %s/%s\n", rt.Name, item.name)
+			}
+		}
+		fmt.Print("\nAre you sure? [y/N]: ")
+		var response string
+		_, _ = fmt.Scanln(&response)
+		if response != "y" && response != "Y" {
+			fmt.Println("Canceled")
+			return nil
+		}
+	}
+
+	// Delete all resources
+	var errors []string
+	for _, item := range toDelete {
+		path := rt.GetItemPath(item.namespace, item.name)
+		resp, err := client.Delete(ctx, path)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("%s/%s: %v", item.namespace, item.name, err))
+			continue
+		}
+		if err := resp.Error(); err != nil {
+			errors = append(errors, fmt.Sprintf("%s/%s: %v", item.namespace, item.name, err))
+			continue
+		}
+		output.Successf("%s/%s deleted", rt.Name, item.name)
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("some resources failed to delete:\n  %s", strings.Join(errors, "\n  "))
+	}
+	return nil
+}
+
+// deleteBySelector deletes resources matching a label selector.
+func deleteBySelector(ctx context.Context, client *runtime.Client, rt *ResourceType) error {
+	var namespaces []string
+
+	if allNamespaces && rt.Namespaced {
+		// Get all namespaces
+		resp, err := client.Get(ctx, "/api/web/namespaces", nil)
+		if err != nil {
+			return fmt.Errorf("failed to list namespaces: %w", err)
+		}
+		var nsResp struct {
+			Items []struct {
+				Name string `json:"name"`
+			} `json:"items"`
+		}
+		if err := resp.DecodeJSON(&nsResp); err != nil {
+			return err
+		}
+		for _, ns := range nsResp.Items {
+			namespaces = append(namespaces, ns.Name)
+		}
+	} else {
+		ns := namespace
+		if rt.Namespaced && ns == "" {
+			ns = "default"
+		}
+		namespaces = []string{ns}
+	}
+
+	// Parse label selector conditions
+	conditions := parseLabelSelector(labelSelector)
+	if len(conditions) == 0 {
+		return fmt.Errorf("invalid label selector: %s", labelSelector)
+	}
+
+	// Collect matching resources
+	var toDelete []struct {
+		name      string
+		namespace string
+	}
+
+	for _, ns := range namespaces {
+		path := rt.GetAPIPath(ns)
+		resp, err := client.Get(ctx, path, nil)
+		if err != nil || !resp.IsSuccess() {
+			continue
+		}
+
+		var listResp struct {
+			Items []map[string]interface{} `json:"items"`
+		}
+		if err := resp.DecodeJSON(&listResp); err != nil {
+			continue
+		}
+
+		for _, item := range listResp.Items {
+			labels := extractLabelsMap(item)
+			if matchesLabelConditions(labels, conditions) {
+				name := extractName(item)
+				toDelete = append(toDelete, struct {
+					name      string
+					namespace string
+				}{name: name, namespace: ns})
+			}
+		}
+	}
+
+	if len(toDelete) == 0 {
+		output.Infof("No %s found matching selector %q", rt.Plural, labelSelector)
+		return nil
+	}
+
+	// Confirmation
+	if !force {
+		fmt.Printf("You are about to delete %d %s matching selector %q:\n", len(toDelete), rt.Plural, labelSelector)
+		for _, item := range toDelete {
+			if rt.Namespaced {
+				fmt.Printf("  - %s/%s (namespace: %s)\n", rt.Name, item.name, item.namespace)
+			} else {
+				fmt.Printf("  - %s/%s\n", rt.Name, item.name)
+			}
+		}
+		fmt.Print("\nAre you sure? [y/N]: ")
+		var response string
+		_, _ = fmt.Scanln(&response)
+		if response != "y" && response != "Y" {
+			fmt.Println("Canceled")
+			return nil
+		}
+	}
+
+	// Delete matching resources
+	var errors []string
+	for _, item := range toDelete {
+		path := rt.GetItemPath(item.namespace, item.name)
+		resp, err := client.Delete(ctx, path)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("%s/%s: %v", item.namespace, item.name, err))
+			continue
+		}
+		if err := resp.Error(); err != nil {
+			errors = append(errors, fmt.Sprintf("%s/%s: %v", item.namespace, item.name, err))
+			continue
+		}
+		output.Successf("%s/%s deleted", rt.Name, item.name)
 	}
 
 	if len(errors) > 0 {
@@ -660,6 +952,11 @@ func runLabel(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unknown resource type: %s", resourceType)
 	}
 
+	ns := namespace
+	if rt.Namespaced && ns == "" {
+		ns = "default"
+	}
+
 	// Parse labels
 	addLabels := make(map[string]string)
 	removeLabels := []string{}
@@ -676,10 +973,65 @@ func runLabel(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	client, err := getClient()
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Get current resource
+	path := rt.GetItemPath(ns, resourceName)
+	resp, err := client.Get(ctx, path, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get %s %q: %w", rt.Name, resourceName, err)
+	}
+	if err := resp.Error(); err != nil {
+		return err
+	}
+
+	var resource map[string]interface{}
+	if err := resp.DecodeJSON(&resource); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Get or create metadata and labels
+	metadata, ok := resource["metadata"].(map[string]interface{})
+	if !ok {
+		metadata = make(map[string]interface{})
+		resource["metadata"] = metadata
+	}
+
+	labels, ok := metadata["labels"].(map[string]interface{})
+	if !ok {
+		labels = make(map[string]interface{})
+	}
+
+	// Check for existing labels (unless overwrite flag is set)
+	if !force {
+		for key := range addLabels {
+			if _, exists := labels[key]; exists {
+				return fmt.Errorf("label %q already exists (use --overwrite to update)", key)
+			}
+		}
+	}
+
+	// Apply label changes
+	for key, value := range addLabels {
+		labels[key] = value
+	}
+	for _, key := range removeLabels {
+		delete(labels, key)
+	}
+
+	metadata["labels"] = labels
+	resource["metadata"] = metadata
+
 	if dryRun {
 		fmt.Printf("Would update labels on %s/%s:\n", rt.Name, resourceName)
 		if len(addLabels) > 0 {
-			fmt.Println("  Add:")
+			fmt.Println("  Add/Update:")
 			for k, v := range addLabels {
 				fmt.Printf("    %s=%s\n", k, v)
 			}
@@ -693,8 +1045,16 @@ func runLabel(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// TODO: Implement label update via PATCH
-	output.Warningf("Label command implementation pending - use 'apply' with updated YAML for now")
+	// Update the resource
+	updateResp, err := client.Put(ctx, path, resource)
+	if err != nil {
+		return fmt.Errorf("failed to update %s %q: %w", rt.Name, resourceName, err)
+	}
+	if err := updateResp.Error(); err != nil {
+		return err
+	}
+
+	output.Successf("%s/%s labeled", rt.Name, resourceName)
 	return nil
 }
 
@@ -1023,21 +1383,34 @@ func listAllNamespaces(ctx context.Context, client *runtime.Client, rt *Resource
 
 //nolint:unparam // rt kept for future resource-specific formatting
 func printResource(resource map[string]interface{}, rt *ResourceType) error {
-	if outputFmt == "json" {
+	// Handle advanced output formats (jsonpath, custom-columns, go-template)
+	if isAdvancedOutputFormat(outputFmt) {
+		return printWithFormatter(resource)
+	}
+
+	switch outputFmt {
+	case "json":
 		data, _ := json.MarshalIndent(resource, "", "  ")
 		fmt.Println(string(data))
 		return nil
-	}
-	if outputFmt == "yaml" {
+	case "yaml":
 		data, _ := yaml.Marshal(resource)
 		fmt.Println(string(data))
 		return nil
+	case "name":
+		name := extractName(resource)
+		fmt.Printf("%s/%s\n", rt.Name, name)
+		return nil
+	default:
+		// Table format
+		name := extractName(resource)
+		age := extractAge(resource)
+		if !NoHeaders() {
+			fmt.Println("NAME\tAGE")
+		}
+		fmt.Printf("%s\t%s\n", name, age)
+		return nil
 	}
-
-	// Table format
-	name := extractName(resource)
-	fmt.Printf("NAME\n%s\n", name)
-	return nil
 }
 
 //nolint:unparam // error return kept for API consistency
@@ -1047,24 +1420,21 @@ func printResourceList(result map[string]interface{}, rt *ResourceType, ns strin
 		items = []interface{}{}
 	}
 
-	if outputFmt == "json" {
+	// Handle advanced output formats (jsonpath, custom-columns, go-template)
+	if isAdvancedOutputFormat(outputFmt) {
+		return printWithFormatter(result)
+	}
+
+	switch outputFmt {
+	case "json":
 		data, _ := json.MarshalIndent(result, "", "  ")
 		fmt.Println(string(data))
 		return nil
-	}
-	if outputFmt == "yaml" {
+	case "yaml":
 		data, _ := yaml.Marshal(result)
 		fmt.Println(string(data))
 		return nil
-	}
-
-	if len(items) == 0 {
-		output.Infof("No resources found in namespace %q", ns)
-		return nil
-	}
-
-	// Output format: name
-	if outputFmt == "name" {
+	case "name":
 		for _, item := range items {
 			if m, ok := item.(map[string]interface{}); ok {
 				name := extractName(m)
@@ -1072,14 +1442,13 @@ func printResourceList(result map[string]interface{}, rt *ResourceType, ns strin
 			}
 		}
 		return nil
-	}
-
-	// Output format: wide - shows additional columns
-	if outputFmt == "wide" {
-		if rt.Namespaced {
-			fmt.Println("NAME\t\t\t\tNAMESPACE\tUID\t\t\t\t\t\tCREATED")
-		} else {
-			fmt.Println("NAME\t\t\t\tUID\t\t\t\t\t\tCREATED")
+	case "wide":
+		if !NoHeaders() {
+			if rt.Namespaced {
+				fmt.Println("NAME\t\t\t\tNAMESPACE\tUID\t\t\t\t\t\tCREATED")
+			} else {
+				fmt.Println("NAME\t\t\t\tUID\t\t\t\t\t\tCREATED")
+			}
 		}
 		for _, item := range items {
 			if m, ok := item.(map[string]interface{}); ok {
@@ -1095,27 +1464,63 @@ func printResourceList(result map[string]interface{}, rt *ResourceType, ns strin
 			}
 		}
 		return nil
-	}
+	default:
+		// Table output (default)
+		if len(items) == 0 {
+			output.Infof("No resources found in namespace %q", ns)
+			return nil
+		}
 
-	// Table output (default)
-	if showLabels {
-		fmt.Println("NAME\t\t\tLABELS")
-	} else {
-		fmt.Println("NAME")
-	}
+		// Build header and determine columns
+		hasLabelColumns := len(labelColumns) > 0
+		if !NoHeaders() {
+			header := "NAME\tAGE"
+			if hasLabelColumns {
+				for _, lc := range labelColumns {
+					header += "\t" + strings.ToUpper(lc)
+				}
+			}
+			if showLabels {
+				header += "\tLABELS"
+			}
+			fmt.Println(header)
+		}
 
-	for _, item := range items {
-		if m, ok := item.(map[string]interface{}); ok {
+		for _, item := range items {
+			m, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
 			name := extractName(m)
+			age := extractAge(m)
+			row := name + "\t" + age
+
+			// Add label columns (-L flag)
+			if hasLabelColumns {
+				labelsMap := extractLabelsMap(m)
+				for _, lc := range labelColumns {
+					val := labelsMap[lc]
+					if val == "" {
+						val = "<none>"
+					}
+					row += "\t" + val
+				}
+			}
+
+			// Add all labels (--show-labels flag)
 			if showLabels {
 				labels := extractLabels(m)
-				fmt.Printf("%s\t\t%s\n", name, labels)
-			} else {
-				fmt.Println(name)
+				if labels == "" {
+					labels = "<none>"
+				}
+				row += "\t" + labels
 			}
+
+			fmt.Println(row)
 		}
+		return nil
 	}
-	return nil
 }
 
 //nolint:unparam // error return kept for API consistency
@@ -1225,6 +1630,45 @@ func extractCreated(resource map[string]interface{}) string {
 		}
 	}
 	return "<unknown>"
+}
+
+// extractAge returns a human-readable age string (e.g., "5d", "2h", "30m", "15s").
+func extractAge(resource map[string]interface{}) string {
+	// Try system_metadata.creation_timestamp first
+	if sysMeta, ok := resource["system_metadata"].(map[string]interface{}); ok {
+		if created, ok := sysMeta["creation_timestamp"].(string); ok {
+			if t, err := time.Parse(time.RFC3339Nano, created); err == nil {
+				return formatAge(time.Since(t))
+			}
+		}
+	}
+	return "<unknown>"
+}
+
+// formatAge formats a duration into a human-readable age string like kubectl.
+func formatAge(d time.Duration) string {
+	if d < 0 {
+		return "<invalid>"
+	}
+
+	seconds := int(d.Seconds())
+	minutes := seconds / 60
+	hours := minutes / 60
+	days := hours / 24
+
+	switch {
+	case days > 365:
+		years := days / 365
+		return fmt.Sprintf("%dy", years)
+	case days > 0:
+		return fmt.Sprintf("%dd", days)
+	case hours > 0:
+		return fmt.Sprintf("%dh", hours)
+	case minutes > 0:
+		return fmt.Sprintf("%dm", minutes)
+	default:
+		return fmt.Sprintf("%ds", seconds)
+	}
 }
 
 func extractNamespace(resource map[string]interface{}) string {
@@ -1824,4 +2268,138 @@ func getFieldValue(resource map[string]interface{}, path string) interface{} {
 	}
 
 	return current
+}
+
+// ============================================================================
+// Sorting Helpers
+// ============================================================================
+
+// sortResourcesByField sorts resources by a JSONPath-like field expression.
+// Supports simple paths like ".metadata.name", ".metadata.creationTimestamp", ".spec.field".
+func sortResourcesByField(result map[string]interface{}, fieldPath string) map[string]interface{} {
+	items, ok := result["items"].([]interface{})
+	if !ok || len(items) == 0 {
+		return result
+	}
+
+	// Normalize the path (remove leading dot if present)
+	path := strings.TrimPrefix(fieldPath, ".")
+
+	// Sort the items
+	sort.SliceStable(items, func(i, j int) bool {
+		itemI, okI := items[i].(map[string]interface{})
+		itemJ, okJ := items[j].(map[string]interface{})
+		if !okI || !okJ {
+			return false
+		}
+
+		valI := getFieldValue(itemI, path)
+		valJ := getFieldValue(itemJ, path)
+
+		return compareValues(valI, valJ) < 0
+	})
+
+	result["items"] = items
+	return result
+}
+
+// compareValues compares two values for sorting.
+// Returns negative if a < b, 0 if a == b, positive if a > b.
+func compareValues(a, b interface{}) int {
+	// Handle nil values
+	if a == nil && b == nil {
+		return 0
+	}
+	if a == nil {
+		return -1
+	}
+	if b == nil {
+		return 1
+	}
+
+	// Try numeric comparison first
+	numA, okA := toFloat64(a)
+	numB, okB := toFloat64(b)
+	if okA && okB {
+		if numA < numB {
+			return -1
+		}
+		if numA > numB {
+			return 1
+		}
+		return 0
+	}
+
+	// Try time comparison for timestamps
+	strA := fmt.Sprintf("%v", a)
+	strB := fmt.Sprintf("%v", b)
+
+	// Try parsing as RFC3339 timestamps
+	timeA, errA := time.Parse(time.RFC3339Nano, strA)
+	timeB, errB := time.Parse(time.RFC3339Nano, strB)
+	if errA == nil && errB == nil {
+		if timeA.Before(timeB) {
+			return -1
+		}
+		if timeA.After(timeB) {
+			return 1
+		}
+		return 0
+	}
+
+	// Fall back to string comparison
+	return strings.Compare(strA, strB)
+}
+
+// toFloat64 attempts to convert an interface value to float64.
+func toFloat64(v interface{}) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	case string:
+		if f, err := strconv.ParseFloat(n, 64); err == nil {
+			return f, true
+		}
+	}
+	return 0, false
+}
+
+// ============================================================================
+// Advanced Output Format Helpers
+// ============================================================================
+
+// isAdvancedOutputFormat checks if the output format requires the formatter.
+func isAdvancedOutputFormat(format string) bool {
+	return strings.HasPrefix(format, "jsonpath=") ||
+		strings.HasPrefix(format, "custom-columns=") ||
+		strings.HasPrefix(format, "go-template=") ||
+		format == "jsonpath" ||
+		format == "custom-columns" ||
+		format == "go-template"
+}
+
+// printWithFormatter uses the output formatter to print data.
+func printWithFormatter(data interface{}) error {
+	// Handle template file if specified
+	format := outputFmt
+	tmplFile := GetTemplateFile()
+	if tmplFile != "" && strings.HasPrefix(format, "go-template") {
+		// Read template from file
+		tmplContent, err := os.ReadFile(tmplFile)
+		if err != nil {
+			return fmt.Errorf("failed to read template file: %w", err)
+		}
+		format = "go-template=" + string(tmplContent)
+	}
+
+	formatter := output.NewFormatter(format)
+	return formatter.Format(os.Stdout, data)
 }
