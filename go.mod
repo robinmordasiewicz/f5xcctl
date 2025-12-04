@@ -1,6 +1,6 @@
 module github.com/f5/f5xcctl
 
-go 1.23.0
+go 1.24.0
 
 require (
 	github.com/c-bata/go-prompt v0.2.6
@@ -8,6 +8,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
+	golang.org/x/term v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 	software.sslmate.com/src/go-pkcs12 v0.6.0
 )
@@ -33,6 +34,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.11.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 )

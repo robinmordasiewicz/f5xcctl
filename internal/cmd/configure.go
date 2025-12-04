@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/f5/f5xcctl/internal/config"
 )
@@ -38,6 +39,34 @@ func init() {
 	configureCmd.Flags().StringVar(&configTenantID, "tenant", "", "F5XC tenant name")
 }
 
+// readLine reads a line from stdin and trims whitespace including \r\n.
+func readLine(reader *bufio.Reader) (string, error) {
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	// Trim both \r and \n to handle Windows-style line endings
+	return strings.TrimRight(input, "\r\n"), nil
+}
+
+// readPassword reads a password from stdin without echoing (shows ******).
+func readPassword() (string, error) {
+	// Check if stdin is a terminal
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		// Fall back to regular input if not a terminal
+		reader := bufio.NewReader(os.Stdin)
+		return readLine(reader)
+	}
+
+	password, err := term.ReadPassword(fd)
+	if err != nil {
+		return "", err
+	}
+	fmt.Println() // Print newline since ReadPassword doesn't echo
+	return string(password), nil
+}
+
 func runConfigure(cmd *cobra.Command, args []string) error {
 	reader := bufio.NewReader(os.Stdin)
 
@@ -49,26 +78,26 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	tenantName := configTenantID
 	if tenantName == "" {
 		fmt.Print("Tenant name: ")
-		input, err := reader.ReadString('\n')
+		input, err := readLine(reader)
 		if err != nil {
 			return fmt.Errorf("failed to read input: %w", err)
 		}
-		tenantName = strings.TrimSpace(input)
+		tenantName = input
 	}
 
 	if tenantName == "" {
 		return fmt.Errorf("tenant name is required")
 	}
 
-	// Get API token
+	// Get API token (masked input)
 	apiToken := configAPIToken
 	if apiToken == "" {
 		fmt.Print("API token: ")
-		input, err := reader.ReadString('\n')
+		input, err := readPassword()
 		if err != nil {
-			return fmt.Errorf("failed to read input: %w", err)
+			return fmt.Errorf("failed to read token: %w", err)
 		}
-		apiToken = strings.TrimSpace(input)
+		apiToken = input
 	}
 
 	if apiToken == "" {
@@ -77,22 +106,20 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 
 	// Get default namespace
 	fmt.Print("Default namespace [default]: ")
-	nsInput, _ := reader.ReadString('\n')
-	defaultNS := strings.TrimSpace(nsInput)
+	defaultNS, _ := readLine(reader)
 	if defaultNS == "" {
 		defaultNS = "default"
 	}
 
 	// Get output format preference
 	fmt.Print("Default output format (table/json/yaml) [table]: ")
-	fmtInput, _ := reader.ReadString('\n')
-	outputFormat := strings.TrimSpace(fmtInput)
+	outputFormat, _ := readLine(reader)
 	if outputFormat == "" {
 		outputFormat = "table"
 	}
 
-	// Build API URL from tenant
-	apiURL := fmt.Sprintf("https://%s.console.ves.volterra.io/api", tenantName)
+	// Build API URL from tenant (without /api suffix - paths include it)
+	apiURL := fmt.Sprintf("https://%s.console.ves.volterra.io", tenantName)
 
 	// Create configuration
 	cfg := &config.Config{
