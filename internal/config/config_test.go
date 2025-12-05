@@ -3,11 +3,33 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// setTestHome sets the home directory environment variable for testing.
+// On Windows, this sets USERPROFILE; on Unix systems, this sets HOME.
+// Returns a cleanup function to restore the original values.
+func setTestHome(t *testing.T, dir string) func() {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		original := os.Getenv("USERPROFILE")
+		os.Setenv("USERPROFILE", dir)
+		return func() {
+			os.Setenv("USERPROFILE", original)
+		}
+	}
+
+	original := os.Getenv("HOME")
+	os.Setenv("HOME", dir)
+	return func() {
+		os.Setenv("HOME", original)
+	}
+}
 
 func TestNewDefault(t *testing.T) {
 	cfg := NewDefault()
@@ -95,10 +117,9 @@ func TestSaveAndLoad(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	// Override default config dir
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	// Override default config dir (handles Windows vs Unix)
+	cleanup := setTestHome(t, tmpDir)
+	defer cleanup()
 
 	// Create and save config
 	cfg := &Config{
@@ -136,10 +157,9 @@ func TestLoadWithProfile(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	// Override default config dir
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	// Override default config dir (handles Windows vs Unix)
+	cleanup := setTestHome(t, tmpDir)
+	defer cleanup()
 
 	// Create config with multiple profiles
 	cfg := &Config{
@@ -169,10 +189,9 @@ func TestCredentials(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	// Override default config dir
-	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", originalHome)
+	// Override default config dir (handles Windows vs Unix)
+	cleanup := setTestHome(t, tmpDir)
+	defer cleanup()
 
 	// Create and save credentials
 	creds := &Credentials{
