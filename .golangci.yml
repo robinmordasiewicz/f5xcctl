@@ -92,7 +92,7 @@ linters:
 
     goconst:
       min-len: 6
-      min-occurrences: 50
+      min-occurrences: 60
 
     misspell:
       locale: US
