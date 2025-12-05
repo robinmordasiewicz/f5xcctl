@@ -203,11 +203,13 @@ func TestCredentials(t *testing.T) {
 	err = SaveCredentials(creds)
 	require.NoError(t, err)
 
-	// Verify file permissions
+	// Verify file permissions (skip on Windows as it doesn't support Unix permissions)
 	credsPath := filepath.Join(tmpDir, ".f5xc", "credentials")
 	info, err := os.Stat(credsPath)
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	}
 
 	// Load credentials
 	loaded, err := LoadCredentials()
